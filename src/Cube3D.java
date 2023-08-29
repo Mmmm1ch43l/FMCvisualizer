@@ -34,14 +34,14 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     private int prevY;
     private double scale;
     private final double offset = (1-faceShrinkage)/2;
-    private int[][][] faceColorsStart =
+    private final int[][][] faceColorsStart =
             {{{0, 0, 0},{0, 0, 0},{0, 0, 0}}//U
                     ,{{1, 1, 1},{1, 1, 1},{1, 1, 1}}//D
                     ,{{2, 2, 2},{2, 2, 2},{2, 2, 2}}//F
                     ,{{3, 3, 3},{3, 3, 3},{3, 3, 3}}//B
                     ,{{4, 4, 4},{4, 4, 4},{4, 4, 4}}//R
                     ,{{5, 5, 5},{5, 5, 5},{5, 5, 5}}};//L
-    private int[][][] faceColorsOStart =
+    private final int[][][] faceColorsOStart =
             {{{0, 0, 0},{0, 0, 0},{0, 0, 0}}//U
                     ,{{1, 1, 1},{1, 1, 1},{1, 1, 1}}//D
                     ,{{2, 2, 2},{2, 2, 2},{2, 2, 2}}//F
@@ -64,8 +64,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         // Set the background color
         setBackground(Color.darkGray);
         resetCubes();
-        applyMoves("B2 D' L' F2 L2 F R2 U2 B' U2 F' L2 F' D L2 U R U2 B D", false);
-        applyMoves("B2 D' L' F2 L2 F R2 U2 B'U2 F' L2 F' DL2 U RU2 B", true);
+        applyMoves("B2 D' L' F2 L2 F R2 U2 B' U2 F' L2 F' D L2 U R U2 B D"+"URUF2D'LR'FL'RU'FUF'", "BU2B'R2BFU'F'UFU'F'U'F");
     }
 
     public void paintComponent(Graphics g) {
@@ -292,15 +291,13 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         faceColorsO = deeperClone(faceColorsOStart);
     }
 
-    public void applyMoves (String moves, boolean inverted){
-        moves = cleanUp(moves);
-        if(inverted){
-            applyMovesN(reverse(moves));
-            applyMovesO(moves);
-        } else {
-            applyMovesN(moves);
-            applyMovesO(reverse(moves));
-        }
+    public void applyMoves (String normalMoves, String inverseMoves){
+        normalMoves = cleanUp(normalMoves);
+        inverseMoves = cleanUp(inverseMoves);
+        applyMovesN(reverse(inverseMoves));
+        applyMovesN(normalMoves);
+        applyMovesO(reverse(normalMoves));
+        applyMovesO(inverseMoves);
     }
 
     private void applyMovesN (String moves){
@@ -1365,7 +1362,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         StringBuilder output = new StringBuilder();
         for (int i = 0; i < input.length(); i = i + 2) {
             if(input.charAt(i+1)==' '){
-                output.insert(0, input.charAt(i) + "\'");
+                output.insert(0, input.charAt(i) + "'");
             } else if (input.charAt(i+1)=='\''){
                 output.insert(0, input.charAt(i) + " ");
             } else {
@@ -1376,19 +1373,19 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     }
 
     private String cleanUp (String input){
-        String output = "";
+        StringBuilder output = new StringBuilder();
         for (int i = 0; i < input.length()-1; i++) {
             if(input.charAt(i)=='U'||input.charAt(i)=='D'||input.charAt(i)=='F'||input.charAt(i)=='B'||input.charAt(i)=='R'||input.charAt(i)=='L'){
                 if(input.charAt(i+1)=='\''||input.charAt(i+1)=='2'){
-                    output += input.substring(i,i+2);
+                    output.append(input.substring(i, i + 2));
                 } else {
-                    output += input.charAt(i)+" ";
+                    output.append(input.charAt(i)).append(" ");
                 }
             }
         }
         if(input.charAt(input.length()-1)=='U'||input.charAt(input.length()-1)=='D'||input.charAt(input.length()-1)=='F'||input.charAt(input.length()-1)=='B'||input.charAt(input.length()-1)=='R'||input.charAt(input.length()-1)=='L'){
-            output += input.charAt(input.length()-1)+" ";
+            output.append(input.charAt(input.length() - 1)).append(" ");
         }
-        return output;
+        return output.toString();
     }
 }
