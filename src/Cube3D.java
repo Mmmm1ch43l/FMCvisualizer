@@ -13,8 +13,8 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     private final double faceShrinkage = 1;
     private final double rotationThreshold = 1e-10;
     private final int n = 3;
-    private static final int windowWidth = 2000;
-    private static final int windowHeight = 1000;
+    private static final int windowWidth = 1400;
+    private static final int windowHeight = 700;
 
 
     // The vertices of the cube
