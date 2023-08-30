@@ -12,7 +12,6 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     private final double yAngleStart = .2;
     private final double faceShrinkage = 1;
     private final double rotationThreshold = 1e-10;
-    private final int n = 3;
     private static final int windowWidth = 1400;
     private static final int windowHeight = 700;
 
@@ -63,8 +62,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         addMouseMotionListener(this);
         // Set the background color
         setBackground(Color.darkGray);
-        resetCubes();
-        applyMoves("B2 D' L' F2 L2 F R2 U2 B' U2 F' L2 F' D L2 U R U2 B D"+"URUF2D'LR'FL'RU'FUF'", "BU2B'R2BFU'F'UFU'F'U'F");
+        applyMoves("F' U2 B D2 F2 L2 F L2 F2 U2 L2 U2 R' F2 U2 F' U F2 L' R2 F'"+"L F' U 3x2x1 F D F' D F D' F", "B' L B' U2 B2 3x2x2 L' F L EO F' D2 F D'");
     }
 
     public void paintComponent(Graphics g) {
@@ -95,7 +93,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         }
     }
 
-    public void drawFace(Graphics2D g2d, int face, boolean otherCube) {
+    private void drawFace(Graphics2D g2d, int face, boolean otherCube) {
         int[] xCords;
         int[] yCords;
         double[] startingVertex = verticesT[faces[face][0]].clone();
@@ -105,6 +103,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         double[] v2;
         double[] v3;
         double[] v4;
+        int n = 3;
         for (int i = 0; i < startingVertex.length; i++) {
             xDirection[i] -= startingVertex[i];
             yDirection[i] -= startingVertex[i];
@@ -191,7 +190,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         frame.setVisible(true);
     }
 
-    public static int[] rank(double[] input) {
+    private static int[] rank(double[] input) {
         Random r = new Random();
         // Create a copy of the input array and sort it
         double[] input2 = input.clone();
@@ -292,6 +291,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     }
 
     public void applyMoves (String normalMoves, String inverseMoves){
+        resetCubes();
         normalMoves = cleanUp(normalMoves);
         inverseMoves = cleanUp(inverseMoves);
         applyMovesN(reverse(inverseMoves));
@@ -1359,6 +1359,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     }
 
     private String reverse (String input){
+        if (input.isEmpty()) return "";
         StringBuilder output = new StringBuilder();
         for (int i = 0; i < input.length(); i = i + 2) {
             if(input.charAt(i+1)==' '){
@@ -1373,6 +1374,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     }
 
     private String cleanUp (String input){
+        if (input.isEmpty()) return "";
         StringBuilder output = new StringBuilder();
         for (int i = 0; i < input.length()-1; i++) {
             if(input.charAt(i)=='U'||input.charAt(i)=='D'||input.charAt(i)=='F'||input.charAt(i)=='B'||input.charAt(i)=='R'||input.charAt(i)=='L'){
