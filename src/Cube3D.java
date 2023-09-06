@@ -3,6 +3,8 @@ import java.awt.event.*;
 import java.util.Arrays;
 import java.util.Random;
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 public class Cube3D extends JPanel implements MouseListener, MouseMotionListener {
     //parameters
@@ -13,7 +15,8 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     private final double faceShrinkage = 1;
     private final double rotationThreshold = 1e-10;
     private static final int windowWidth = 1400;
-    private static final int windowHeight = 700;
+    private static final int windowHeightCube = 700;
+    private static final int windowHeightText = 300;
 
 
     // The vertices of the cube
@@ -181,12 +184,48 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         // Create a frame to display the panel
         JFrame frame = new JFrame("Cube3D");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(windowWidth, windowHeight);
+        frame.setSize(windowWidth, windowHeightCube+windowHeightText);
         frame.setLocationRelativeTo(null);
         frame.setResizable(false);
-        // Add the panel to the frame
-        frame.add(new Cube3D());
-        // Show the frame
+        // Create a text area and a scroll pane
+        JTextArea textArea = new JTextArea(5, 40); // Create a text area with 5 rows and 40 columns
+        //textArea.setPreferredSize(new Dimension(windowWidth-5, windowHeightText));
+        JScrollPane scrollPane = new JScrollPane(textArea); // Create a scroll pane and add the text area to it
+
+        // Add a document listener to the text area
+        textArea.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) {
+                // Get the text entered by the user
+                String text = textArea.getText();
+                // Print the text to the console
+                System.out.println(text);
+            }
+
+            public void removeUpdate(DocumentEvent e) {
+                // Get the text entered by the user
+                String text = textArea.getText();
+                // Print the text to the console
+                System.out.println(text);
+            }
+
+            public void changedUpdate(DocumentEvent e) {
+                // Get the text entered by the user
+                String text = textArea.getText();
+                // Print the text to the console
+                System.out.println(text);
+            }
+        });
+
+        // Create a panel with the cube
+        Cube3D cubePanel = new Cube3D();
+
+        // Set the layout manager of the frame to a box layout with vertical alignment
+        frame.setLayout(new BoxLayout(frame.getContentPane(), BoxLayout.Y_AXIS));
+
+        // Add the panel and the scroll pane to the frame
+        frame.add(cubePanel);
+        frame.add(scrollPane);
+
         frame.setVisible(true);
     }
 
