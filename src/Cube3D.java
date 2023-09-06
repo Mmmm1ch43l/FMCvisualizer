@@ -16,7 +16,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     private final double rotationThreshold = 1e-10;
     private static final int windowWidth = 1400;
     private static final int windowHeightCube = 700;
-    private static final int windowHeightText = 300;
+    private static final int windowHeightText = 500;
 
 
     // The vertices of the cube
@@ -184,12 +184,12 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         // Create a frame to display the panel
         JFrame frame = new JFrame("Cube3D");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(windowWidth, windowHeightCube+windowHeightText);
+        frame.setSize(windowWidth+20, windowHeightCube+windowHeightText+20);
         frame.setLocationRelativeTo(null);
         frame.setResizable(false);
         // Create a text area and a scroll pane
         JTextArea textArea = new JTextArea(5, 40); // Create a text area with 5 rows and 40 columns
-        //textArea.setPreferredSize(new Dimension(windowWidth-5, windowHeightText));
+        textArea.setPreferredSize(new Dimension(windowWidth, windowHeightText));
         JScrollPane scrollPane = new JScrollPane(textArea); // Create a scroll pane and add the text area to it
 
         // Add a document listener to the text area
@@ -218,6 +218,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
 
         // Create a panel with the cube
         Cube3D cubePanel = new Cube3D();
+        cubePanel.setPreferredSize(new Dimension(windowWidth, windowHeightCube));
 
         // Set the layout manager of the frame to a box layout with vertical alignment
         frame.setLayout(new BoxLayout(frame.getContentPane(), BoxLayout.Y_AXIS));
