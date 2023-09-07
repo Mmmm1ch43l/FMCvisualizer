@@ -12,60 +12,52 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     private final double perspective = 1/15.;
     private final double xAngleStart = -.3;
     private final double yAngleStart = .2;
-    private final double faceShrinkage = 1;
     private final double rotationThreshold = 1e-10;
-    private static final int windowWidth = 1400;
-    private static final int windowHeightCube = 700;
-    private static final int windowHeightText = 500;
-
-
-    // The vertices of the cube
-    private final int[][] vertices = {{-1, -1, -1}, {-1, -1, 1}, {-1, 1, -1}, {-1, 1, 1}, {1, -1, -1}, {1, -1, 1}, {1, 1, -1}, {1, 1, 1}};
+    private static final int windowWidth = 800;
+    private static final int windowHeight = 800;
     private double[][] basis = rotate(new double[][] {{1,0,0},{0,1,0},{0,0,1}}, xAngleStart, yAngleStart);
     // The rotation angles
     private double xAngle;
     private double yAngle;
     private double[][] basisT;
-    private double[][] verticesT;
-    // The edges of the cube
-    private final int[][] faces = {{0, 4, 5, 1}, {3, 7, 6, 2}, {1, 5, 7, 3}, {4, 0, 2, 6}, {5, 4, 6, 7}, {0, 1, 3, 2}};
     // The colors of the faces
-    private final Color[] colors = {Color.white, Color.yellow, Color.green, Color.decode("#0091ff"), Color.red, Color.decode("#ff9500"),Color.pink,Color.lightGray};
+    private final Color[] colors = {
+            Color.decode("#20000000"),//0: transparent gray
+            Color.white,//1: white
+            Color.yellow,//2: yellow
+            Color.green,//3: green
+            Color.decode("#0091ff"),//4: blue
+            Color.red,//5: red
+            Color.decode("#ff9500")};//6: orange
+    private int[][] faceColors = {
+            {0,0,0,0,0,0},//0: fully transparent
+            {1,0,0,0,0,0},//1: white center
+            {0,2,0,0,0,0},//2: yellow center
+            {0,0,3,0,0,0},//3: green center
+            {0,0,0,4,0,0},//4: blue center
+            {0,0,0,0,5,0},//5: red center
+            {0,0,0,0,0,6},//6: orange center
+            {6,6,6,6,6,6},//7: fully orange
+            {5,6,6,6,6,6} //8: orange with red top
+    };
+    private int[] cubeColors = {8,0,0,  0,1,0,  0,0,0,
+                                0,3,0,  6,0,5,  0,4,0,
+                                8,0,8,  0,2,0,  0,0,0};
+    private int[] orientations = {3,0,0,  0,0,0,  0,0,0,
+                                  0,0,0,  0,0,0,  0,0,0,
+                                  2,0,2,  0,0,0,  0,0,0};
+    private double[][] centerCoordinates;
     // The previous mouse position
     private int prevX;
     private int prevY;
     private double scale;
-    private final double offset = (1-faceShrinkage)/2;
-    private final int[][][] faceColorsStart =
-            {{{0, 0, 0},{0, 0, 0},{0, 0, 0}}//U
-                    ,{{1, 1, 1},{1, 1, 1},{1, 1, 1}}//D
-                    ,{{2, 2, 2},{2, 2, 2},{2, 2, 2}}//F
-                    ,{{3, 3, 3},{3, 3, 3},{3, 3, 3}}//B
-                    ,{{4, 4, 4},{4, 4, 4},{4, 4, 4}}//R
-                    ,{{5, 5, 5},{5, 5, 5},{5, 5, 5}}};//L
-    private final int[][][] faceColorsOStart =
-            {{{0, 0, 0},{0, 0, 0},{0, 0, 0}}//U
-                    ,{{1, 1, 1},{1, 1, 1},{1, 1, 1}}//D
-                    ,{{2, 2, 2},{2, 2, 2},{2, 2, 2}}//F
-                    ,{{3, 3, 3},{3, 3, 3},{3, 3, 3}}//B
-                    ,{{4, 4, 4},{4, 4, 4},{4, 4, 4}}//R
-                    ,{{5, 5, 5},{5, 5, 5},{5, 5, 5}}};//L
-            /*{{{0, 1, 0},{1, 0, 1},{0, 1, 0}}//U
-                    ,{{1, 0, 1},{0, 1, 0},{1, 0, 1}}//D
-                    ,{{2, 3, 2},{3, 2, 3},{2, 3, 2}}//F
-                    ,{{3, 2, 3},{2, 3, 2},{3, 2, 3}}//B
-                    ,{{4, 5, 4},{5, 4, 5},{4, 5, 4}}//R
-                    ,{{5, 4, 5},{4, 5, 4},{5, 4, 5}}};//L*/
-    private int[][][] faceColors;
-    private int[][][] faceColorsO;
 
     public Cube3D() {
         // Add mouse listeners
         addMouseListener(this);
         addMouseMotionListener(this);
         // Set the background color
-        setBackground(Color.darkGray);
-        applyMoves("F' U2 B D2 F2 L2 F L2 F2 U2 L2 U2 R' F2 U2 F' U F2 L' R2 F'"+"L F' U 3x2x1 F D F' D F D' F", "B' L B' U2 B2 3x2x2 L' F L EO F' D2 F D'");
+        setBackground(Color.white);
     }
 
     public void paintComponent(Graphics g) {
@@ -80,76 +72,81 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         // Set the origin to the center of the panel
         g2d.translate(width / 2, height / 2);
         // Scale the cube to fit the panel
-        scale = Math.min(width / 1.8, height / .9) / 4.0;
+        scale = Math.min(width / .9, height / .9) / 12.0;
         basisT = rotate(basis, xAngle, yAngle);
-        verticesT = express();
+    }
+
+    private void drawCube(Graphics2D g2d, double[] centerCoordinate, int faceColor, int orientation) {
+        double[][] cubeVertices = new double[8][];
+        double[][][] faceVertices = new double[6][][];
+        double[][] basisTemp = new double[3][];
+        switch (orientation){
+            case 0 -> {
+                basisTemp[0] = basisT[0].clone();
+                basisTemp[1] = basisT[1].clone();
+                basisTemp[2] = basisT[2].clone();
+            }
+            case 1 -> {
+                basisTemp[0] = negative(basisT[0]);
+                basisTemp[1] = negative(basisT[1]);
+                basisTemp[2] = negative(basisT[2]);
+            }
+            case 2 -> {
+                basisTemp[0] = basisT[0].clone();
+                basisTemp[1] = negative(basisT[2]);
+                basisTemp[2] = basisT[1].clone();
+            }
+            case 3 -> {
+                basisTemp[0] = negative(basisT[0]);
+                basisTemp[1] = basisT[2].clone();
+                basisTemp[2] = negative(basisT[1]);
+            }
+            case 4 -> {
+                basisTemp[0] = negative(basisT[1]);
+                basisTemp[1] = basisT[0].clone();
+                basisTemp[2] = basisT[2].clone();
+            }
+            case 5 -> {
+                basisTemp[0] = basisT[1].clone();
+                basisTemp[1] = negative(basisT[0]);
+                basisTemp[2] = negative(basisT[2]);
+            }
+        }
+        int index;
+        for (int i = 0; i < 2; i++) {
+            for (int j = 0; j < 2; j++) {
+                for (int k = 0; k < 2; k++) {
+                    index = i+2*j+4*k;
+                    cubeVertices[index] = centerCoordinate.clone();
+                    cubeVertices[index][0] += ()
+                }
+            }
+        }
         // Draw the faces of the cube
         // Get the average z value of the face
-        double[] z = new double[faces.length];
-        for (int i = 0; i < faces.length; i++) {
-            z[i] = (verticesT[faces[i][0]][2] + verticesT[faces[i][1]][2] + verticesT[faces[i][2]][2] + verticesT[faces[i][3]][2]) / 4.0;
+        double[] z = new double[6];
+        for (int i = 0; i < 6; i++) {
+            z[i] = (faceVertices[i][0][2] + faceVertices[i][1][2] + faceVertices[i][2][2] + faceVertices[i][3][2]) / 4.0;
         }
         int[] order = rank(z);
-        for (int i = 0; i < faces.length; i++) {
-            drawFace(g2d, order[i], false);
-            drawFace(g2d, order[i], true);
+        for (int i = 0; i < 6; i++) {
+            drawFace(g2d, faceColors[faceColor][order[i]], faceVertices[order[i]][0], faceVertices[order[i]][1], faceVertices[order[i]][2], faceVertices[order[i]][3]);
         }
     }
 
-    private void drawFace(Graphics2D g2d, int face, boolean otherCube) {
-        int[] xCords;
-        int[] yCords;
-        double[] startingVertex = verticesT[faces[face][0]].clone();
-        double[] xDirection = verticesT[faces[face][1]].clone();
-        double[] yDirection = verticesT[faces[face][3]].clone();
-        double[] v1;
-        double[] v2;
-        double[] v3;
-        double[] v4;
-        int n = 3;
-        for (int i = 0; i < startingVertex.length; i++) {
-            xDirection[i] -= startingVertex[i];
-            yDirection[i] -= startingVertex[i];
-            xDirection[i] /= n;
-            yDirection[i] /= n;
-        }
-        if(otherCube){
-            startingVertex[0] += 1.8;
-        } else {
-            startingVertex[0] -= 1.8;
-        }
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                if(otherCube){
-                    g2d.setColor(colors[faceColorsO[face][i][j]]);
-                } else {
-                    g2d.setColor(colors[faceColors[face][i][j]]);
-                }
-                v1 = startingVertex.clone();
-                v2 = startingVertex.clone();
-                v3 = startingVertex.clone();
-                v4 = startingVertex.clone();
-                for (int k = 0; k < n; k++) {
-                    v1[k] += i*xDirection[k]+j*yDirection[k] + (xDirection[k]+yDirection[k])*offset;
-                    v2[k] += (i+1)*xDirection[k]+j*yDirection[k] + (-xDirection[k]+yDirection[k])*offset;
-                    v3[k] += (i+1)*xDirection[k]+(j+1)*yDirection[k] + (-xDirection[k]-yDirection[k])*offset;
-                    v4[k] += i*xDirection[k]+(j+1)*yDirection[k] + (xDirection[k]-yDirection[k])*offset;
-                }
-                v1[0] *= Math.exp(v1[2]*perspective)*scale;
-                v1[1] *= Math.exp(v1[2]*perspective)*scale;
-                v2[0] *= Math.exp(v2[2]*perspective)*scale;
-                v2[1] *= Math.exp(v2[2]*perspective)*scale;
-                v3[0] *= Math.exp(v3[2]*perspective)*scale;
-                v3[1] *= Math.exp(v3[2]*perspective)*scale;
-                v4[0] *= Math.exp(v4[2]*perspective)*scale;
-                v4[1] *= Math.exp(v4[2]*perspective)*scale;
-                xCords = new int[] {(int) v1[0], (int) v2[0], (int) v3[0], (int) v4[0]};
-                yCords = new int[] {(int) v1[1], (int) v2[1], (int) v3[1], (int) v4[1]};
-                g2d.fillPolygon(xCords, yCords, 4);
-                g2d.setColor(Color.darkGray);
-                g2d.drawPolygon(xCords, yCords, 4);
-            }
-        }
+    private void drawFace(Graphics2D g2d, int color, double[] v1, double[] v2, double[] v3, double[] v4) {
+        int[] xCords = new int[] {(int) (v1[0]*Math.exp(v1[2]*perspective)*scale),
+                (int) (v2[0]*Math.exp(v1[2]*perspective)*scale),
+                (int) (v3[0]*Math.exp(v1[2]*perspective)*scale),
+                (int) (v4[0]*Math.exp(v1[2]*perspective)*scale)};
+        int[] yCords = new int[] {(int) (v1[1]*Math.exp(v1[2]*perspective)*scale),
+                (int) (v2[1]*Math.exp(v1[2]*perspective)*scale),
+                (int) (v3[1]*Math.exp(v1[2]*perspective)*scale),
+                (int) (v4[1]*Math.exp(v1[2]*perspective)*scale)};
+        g2d.setColor(colors[color]);
+        g2d.fillPolygon(xCords, yCords, 4);
+        g2d.setColor(Color.darkGray);
+        g2d.drawPolygon(xCords, yCords, 4);
     }
 
     public void mousePressed(MouseEvent e) {
@@ -184,49 +181,10 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         // Create a frame to display the panel
         JFrame frame = new JFrame("Cube3D");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(windowWidth+20, windowHeightCube+windowHeightText+20);
+        frame.setSize(windowWidth, windowHeight);
         frame.setLocationRelativeTo(null);
         frame.setResizable(false);
-        // Create a text area and a scroll pane
-        JTextArea textArea = new JTextArea(5, 40); // Create a text area with 5 rows and 40 columns
-        textArea.setPreferredSize(new Dimension(windowWidth, windowHeightText));
-        JScrollPane scrollPane = new JScrollPane(textArea); // Create a scroll pane and add the text area to it
-
-        // Add a document listener to the text area
-        textArea.getDocument().addDocumentListener(new DocumentListener() {
-            public void insertUpdate(DocumentEvent e) {
-                // Get the text entered by the user
-                String text = textArea.getText();
-                // Print the text to the console
-                System.out.println(text);
-            }
-
-            public void removeUpdate(DocumentEvent e) {
-                // Get the text entered by the user
-                String text = textArea.getText();
-                // Print the text to the console
-                System.out.println(text);
-            }
-
-            public void changedUpdate(DocumentEvent e) {
-                // Get the text entered by the user
-                String text = textArea.getText();
-                // Print the text to the console
-                System.out.println(text);
-            }
-        });
-
-        // Create a panel with the cube
-        Cube3D cubePanel = new Cube3D();
-        cubePanel.setPreferredSize(new Dimension(windowWidth, windowHeightCube));
-
-        // Set the layout manager of the frame to a box layout with vertical alignment
-        frame.setLayout(new BoxLayout(frame.getContentPane(), BoxLayout.Y_AXIS));
-
-        // Add the panel and the scroll pane to the frame
-        frame.add(cubePanel);
-        frame.add(scrollPane);
-
+        frame.add(new Cube3D());
         frame.setVisible(true);
     }
 
@@ -293,12 +251,302 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         return output;
     }
 
-    private double[][] express(){
-        double[][] output = new double[vertices.length][vertices[0].length];
-        for (int i = 0; i < vertices.length; i++) {
-            for (int j = 0; j < vertices[0].length; j++) {
-                output[i][j] = vertices[i][0]*basisT[0][j] + vertices[i][1]*basisT[1][j] + vertices[i][2]*basisT[2][j];
+    public void makeMove (String move){
+        int buffer;
+        switch (move.charAt(0)) {
+            case 'U' -> {
+                switch (move.charAt(1)){
+                    case ' ' -> {
+                        buffer = state[0][4];
+                        state[0][4] = state[0][8];
+                        state[0][8] = state[0][5];
+                        state[0][5] = state[0][9];
+                        state[0][9] = buffer;
+                        buffer = state[1][0];
+                        state[1][0] = state[1][6];
+                        state[1][6] = state[1][1];
+                        state[1][1] = state[1][7];
+                        state[1][7] = buffer;
+                    }
+                    case '\'' -> {
+                        buffer = state[0][4];
+                        state[0][4] = state[0][9];
+                        state[0][9] = state[0][5];
+                        state[0][5] = state[0][8];
+                        state[0][8] = buffer;
+                        buffer = state[1][0];
+                        state[1][0] = state[1][7];
+                        state[1][7] = state[1][1];
+                        state[1][1] = state[1][6];
+                        state[1][6] = buffer;
+                    }
+                }
             }
+            case 'D' -> {
+                switch (move.charAt(1)){
+                    case ' ' -> {
+                        buffer = state[0][6];
+                        state[0][6] = state[0][11];
+                        state[0][11] = state[0][7];
+                        state[0][7] = state[0][10];
+                        state[0][10] = buffer;
+                        buffer = state[1][2];
+                        state[1][2] = state[1][4];
+                        state[1][4] = state[1][3];
+                        state[1][3] = state[1][5];
+                        state[1][5] = buffer;
+                    }
+                    case '\'' -> {
+                        buffer = state[0][6];
+                        state[0][6] = state[0][10];
+                        state[0][10] = state[0][7];
+                        state[0][7] = state[0][11];
+                        state[0][11] = buffer;
+                        buffer = state[1][2];
+                        state[1][2] = state[1][5];
+                        state[1][5] = state[1][3];
+                        state[1][3] = state[1][4];
+                        state[1][4] = buffer;
+                    }
+                    case '2' -> {
+                        buffer = state[0][6];
+                        state[0][6] = state[0][7];
+                        state[0][7] = buffer;
+                        buffer = state[0][10];
+                        state[0][10] = state[0][11];
+                        state[0][11] = buffer;
+                        buffer = state[1][2];
+                        state[1][2] = state[1][3];
+                        state[1][3] = buffer;
+                        buffer = state[1][4];
+                        state[1][4] = state[1][5];
+                        state[1][5] = buffer;
+                    }
+                }
+            }
+            case 'R' -> {
+                switch (move.charAt(1)){
+                    case ' ' -> {
+                        state[3][state[1][0]] = (state[3][state[1][0]]+1)%3;
+                        state[3][state[1][4]] = (state[3][state[1][4]]+2)%3;
+                        state[3][state[1][2]] = (state[3][state[1][2]]+1)%3;
+                        state[3][state[1][6]] = (state[3][state[1][6]]+2)%3;
+                        buffer = state[0][0];
+                        state[0][0] = state[0][11];
+                        state[0][11] = state[0][3];
+                        state[0][3] = state[0][8];
+                        state[0][8] = buffer;
+                        buffer = state[1][0];
+                        state[1][0] = state[1][4];
+                        state[1][4] = state[1][2];
+                        state[1][2] = state[1][6];
+                        state[1][6] = buffer;
+                    }
+                    case '\'' -> {
+                        state[3][state[1][0]] = (state[3][state[1][0]]+1)%3;
+                        state[3][state[1][4]] = (state[3][state[1][4]]+2)%3;
+                        state[3][state[1][2]] = (state[3][state[1][2]]+1)%3;
+                        state[3][state[1][6]] = (state[3][state[1][6]]+2)%3;
+                        buffer = state[0][0];
+                        state[0][0] = state[0][8];
+                        state[0][8] = state[0][3];
+                        state[0][3] = state[0][11];
+                        state[0][11] = buffer;
+                        buffer = state[1][0];
+                        state[1][0] = state[1][6];
+                        state[1][6] = state[1][2];
+                        state[1][2] = state[1][4];
+                        state[1][4] = buffer;
+                    }
+                    case '2' -> {
+                        buffer = state[0][0];
+                        state[0][0] = state[0][3];
+                        state[0][3] = buffer;
+                        buffer = state[0][8];
+                        state[0][8] = state[0][11];
+                        state[0][11] = buffer;
+                        buffer = state[1][0];
+                        state[1][0] = state[1][2];
+                        state[1][2] = buffer;
+                        buffer = state[1][4];
+                        state[1][4] = state[1][6];
+                        state[1][6] = buffer;
+                    }
+                }
+            }
+            case 'L' -> {
+                switch (move.charAt(1)){
+                    case ' ' -> {
+                        state[3][state[1][1]] = (state[3][state[1][1]]+1)%3;
+                        state[3][state[1][5]] = (state[3][state[1][5]]+2)%3;
+                        state[3][state[1][3]] = (state[3][state[1][3]]+1)%3;
+                        state[3][state[1][7]] = (state[3][state[1][7]]+2)%3;
+                        buffer = state[0][1];
+                        state[0][1] = state[0][9];
+                        state[0][9] = state[0][2];
+                        state[0][2] = state[0][10];
+                        state[0][10] = buffer;
+                        buffer = state[1][1];
+                        state[1][1] = state[1][5];
+                        state[1][5] = state[1][3];
+                        state[1][3] = state[1][7];
+                        state[1][7] = buffer;
+                    }
+                    case '\'' -> {
+                        state[3][state[1][1]] = (state[3][state[1][1]]+1)%3;
+                        state[3][state[1][5]] = (state[3][state[1][5]]+2)%3;
+                        state[3][state[1][3]] = (state[3][state[1][3]]+1)%3;
+                        state[3][state[1][7]] = (state[3][state[1][7]]+2)%3;
+                        buffer = state[0][1];
+                        state[0][1] = state[0][10];
+                        state[0][10] = state[0][2];
+                        state[0][2] = state[0][9];
+                        state[0][9] = buffer;
+                        buffer = state[1][1];
+                        state[1][1] = state[1][7];
+                        state[1][7] = state[1][3];
+                        state[1][3] = state[1][5];
+                        state[1][5] = buffer;
+                    }
+                    case '2' -> {
+                        buffer = state[0][1];
+                        state[0][1] = state[0][2];
+                        state[0][2] = buffer;
+                        buffer = state[0][9];
+                        state[0][9] = state[0][10];
+                        state[0][10] = buffer;
+                        buffer = state[1][1];
+                        state[1][1] = state[1][3];
+                        state[1][3] = buffer;
+                        buffer = state[1][5];
+                        state[1][5] = state[1][7];
+                        state[1][7] = buffer;
+                    }
+                }
+            }
+            case 'F' -> {
+                switch (move.charAt(1)){
+                    case ' ' -> {
+                        state[2][state[0][0]] = (state[2][state[0][0]]+1)%2;
+                        state[2][state[0][4]] = (state[2][state[0][4]]+1)%2;
+                        state[2][state[0][1]] = (state[2][state[0][1]]+1)%2;
+                        state[2][state[0][7]] = (state[2][state[0][7]]+1)%2;
+                        state[3][state[1][0]] = (state[3][state[1][0]]+2)%3;
+                        state[3][state[1][7]] = (state[3][state[1][7]]+1)%3;
+                        state[3][state[1][3]] = (state[3][state[1][3]]+2)%3;
+                        state[3][state[1][4]] = (state[3][state[1][4]]+1)%3;
+                        buffer = state[0][0];
+                        state[0][0] = state[0][4];
+                        state[0][4] = state[0][1];
+                        state[0][1] = state[0][7];
+                        state[0][7] = buffer;
+                        buffer = state[1][0];
+                        state[1][0] = state[1][7];
+                        state[1][7] = state[1][3];
+                        state[1][3] = state[1][4];
+                        state[1][4] = buffer;
+                    }
+                    case '\'' -> {
+                        state[2][state[0][0]] = (state[2][state[0][0]]+1)%2;
+                        state[2][state[0][4]] = (state[2][state[0][4]]+1)%2;
+                        state[2][state[0][1]] = (state[2][state[0][1]]+1)%2;
+                        state[2][state[0][7]] = (state[2][state[0][7]]+1)%2;
+                        state[3][state[1][0]] = (state[3][state[1][0]]+2)%3;
+                        state[3][state[1][7]] = (state[3][state[1][7]]+1)%3;
+                        state[3][state[1][3]] = (state[3][state[1][3]]+2)%3;
+                        state[3][state[1][4]] = (state[3][state[1][4]]+1)%3;
+                        buffer = state[0][0];
+                        state[0][0] = state[0][7];
+                        state[0][7] = state[0][1];
+                        state[0][1] = state[0][4];
+                        state[0][4] = buffer;
+                        buffer = state[1][0];
+                        state[1][0] = state[1][4];
+                        state[1][4] = state[1][3];
+                        state[1][3] = state[1][7];
+                        state[1][7] = buffer;
+                    }
+                    case '2' -> {
+                        buffer = state[0][0];
+                        state[0][0] = state[0][1];
+                        state[0][1] = buffer;
+                        buffer = state[0][4];
+                        state[0][4] = state[0][7];
+                        state[0][7] = buffer;
+                        buffer = state[1][0];
+                        state[1][0] = state[1][3];
+                        state[1][3] = buffer;
+                        buffer = state[1][4];
+                        state[1][4] = state[1][7];
+                        state[1][7] = buffer;
+                    }
+                }
+            }
+            case 'B' -> {
+                switch (move.charAt(1)){
+                    case ' ' -> {
+                        state[2][state[0][2]] = (state[2][state[0][2]]+1)%2;
+                        state[2][state[0][5]] = (state[2][state[0][5]]+1)%2;
+                        state[2][state[0][3]] = (state[2][state[0][3]]+1)%2;
+                        state[2][state[0][6]] = (state[2][state[0][6]]+1)%2;
+                        state[3][state[1][1]] = (state[3][state[1][1]]+2)%3;
+                        state[3][state[1][6]] = (state[3][state[1][6]]+1)%3;
+                        state[3][state[1][2]] = (state[3][state[1][2]]+2)%3;
+                        state[3][state[1][5]] = (state[3][state[1][5]]+1)%3;
+                        buffer = state[0][2];
+                        state[0][2] = state[0][5];
+                        state[0][5] = state[0][3];
+                        state[0][3] = state[0][6];
+                        state[0][6] = buffer;
+                        buffer = state[1][1];
+                        state[1][1] = state[1][6];
+                        state[1][6] = state[1][2];
+                        state[1][2] = state[1][5];
+                        state[1][5] = buffer;
+                    }
+                    case '\'' -> {
+                        state[2][state[0][2]] = (state[2][state[0][2]]+1)%2;
+                        state[2][state[0][5]] = (state[2][state[0][5]]+1)%2;
+                        state[2][state[0][3]] = (state[2][state[0][3]]+1)%2;
+                        state[2][state[0][6]] = (state[2][state[0][6]]+1)%2;
+                        state[3][state[1][1]] = (state[3][state[1][1]]+2)%3;
+                        state[3][state[1][6]] = (state[3][state[1][6]]+1)%3;
+                        state[3][state[1][2]] = (state[3][state[1][2]]+2)%3;
+                        state[3][state[1][5]] = (state[3][state[1][5]]+1)%3;
+                        buffer = state[0][2];
+                        state[0][2] = state[0][6];
+                        state[0][6] = state[0][3];
+                        state[0][3] = state[0][5];
+                        state[0][5] = buffer;
+                        buffer = state[1][1];
+                        state[1][1] = state[1][5];
+                        state[1][5] = state[1][2];
+                        state[1][2] = state[1][6];
+                        state[1][6] = buffer;
+                    }
+                    case '2' -> {
+                        buffer = state[0][2];
+                        state[0][2] = state[0][3];
+                        state[0][3] = buffer;
+                        buffer = state[0][5];
+                        state[0][5] = state[0][6];
+                        state[0][6] = buffer;
+                        buffer = state[1][1];
+                        state[1][1] = state[1][2];
+                        state[1][2] = buffer;
+                        buffer = state[1][5];
+                        state[1][5] = state[1][6];
+                        state[1][6] = buffer;
+                    }
+                }
+            }
+        }
+    }
+
+    private double[] negative (double[] input){
+        double[] output = input.clone();
+        for (int i = 0; i < input.length; i++) {
+            output[i] *= -1;
         }
         return output;
     }
@@ -323,1111 +571,5 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
             output[i] = deepClone(input[i]);
         }
         return output;
-    }
-
-    public void resetCubes (){
-        faceColors = deeperClone(faceColorsStart);
-        faceColorsO = deeperClone(faceColorsOStart);
-    }
-
-    public void applyMoves (String normalMoves, String inverseMoves){
-        resetCubes();
-        normalMoves = cleanUp(normalMoves);
-        inverseMoves = cleanUp(inverseMoves);
-        applyMovesN(reverse(inverseMoves));
-        applyMovesN(normalMoves);
-        applyMovesO(reverse(normalMoves));
-        applyMovesO(inverseMoves);
-    }
-
-    private void applyMovesN (String moves){
-        while(!moves.isEmpty()){
-            applyMoveN(moves.substring(0,2));
-            moves = moves.substring(2);
-        }
-    }
-
-    private void applyMovesO (String moves){
-        while(!moves.isEmpty()){
-            applyMoveO(moves.substring(0,2));
-            moves = moves.substring(2);
-        }
-    }
-
-    private void applyMoveN (String move){
-        int buffer;
-        switch (move.charAt(0)){
-            case 'U' -> {
-                if(move.charAt(1)==' '){
-                    buffer = faceColors[0][0][0];
-                    faceColors[0][0][0] = faceColors[0][0][2];
-                    faceColors[0][0][2] = faceColors[0][2][2];
-                    faceColors[0][2][2] = faceColors[0][2][0];
-                    faceColors[0][2][0] = buffer;
-                    buffer = faceColors[0][1][0];
-                    faceColors[0][1][0] = faceColors[0][0][1];
-                    faceColors[0][0][1] = faceColors[0][1][2];
-                    faceColors[0][1][2] = faceColors[0][2][1];
-                    faceColors[0][2][1] = buffer;
-                    buffer = faceColors[2][0][0];
-                    faceColors[2][0][0] = faceColors[4][0][0];
-                    faceColors[4][0][0] = faceColors[3][0][0];
-                    faceColors[3][0][0] = faceColors[5][0][0];
-                    faceColors[5][0][0] = buffer;
-                    buffer = faceColors[2][1][0];
-                    faceColors[2][1][0] = faceColors[4][1][0];
-                    faceColors[4][1][0] = faceColors[3][1][0];
-                    faceColors[3][1][0] = faceColors[5][1][0];
-                    faceColors[5][1][0] = buffer;
-                    buffer = faceColors[2][2][0];
-                    faceColors[2][2][0] = faceColors[4][2][0];
-                    faceColors[4][2][0] = faceColors[3][2][0];
-                    faceColors[3][2][0] = faceColors[5][2][0];
-                    faceColors[5][2][0] = buffer;
-                } else if (move.charAt(1)=='\''){
-                    buffer = faceColors[0][0][0];
-                    faceColors[0][0][0] = faceColors[0][2][0];
-                    faceColors[0][2][0] = faceColors[0][2][2];
-                    faceColors[0][2][2] = faceColors[0][0][2];
-                    faceColors[0][0][2] = buffer;
-                    buffer = faceColors[0][1][0];
-                    faceColors[0][1][0] = faceColors[0][2][1];
-                    faceColors[0][2][1] = faceColors[0][1][2];
-                    faceColors[0][1][2] = faceColors[0][0][1];
-                    faceColors[0][0][1] = buffer;
-                    buffer = faceColors[2][0][0];
-                    faceColors[2][0][0] = faceColors[5][0][0];
-                    faceColors[5][0][0] = faceColors[3][0][0];
-                    faceColors[3][0][0] = faceColors[4][0][0];
-                    faceColors[4][0][0] = buffer;
-                    buffer = faceColors[2][1][0];
-                    faceColors[2][1][0] = faceColors[5][1][0];
-                    faceColors[5][1][0] = faceColors[3][1][0];
-                    faceColors[3][1][0] = faceColors[4][1][0];
-                    faceColors[4][1][0] = buffer;
-                    buffer = faceColors[2][2][0];
-                    faceColors[2][2][0] = faceColors[5][2][0];
-                    faceColors[5][2][0] = faceColors[3][2][0];
-                    faceColors[3][2][0] = faceColors[4][2][0];
-                    faceColors[4][2][0] = buffer;
-                } else {
-                    buffer = faceColors[0][0][0];
-                    faceColors[0][0][0] = faceColors[0][2][2];
-                    faceColors[0][2][2] = buffer;
-                    buffer = faceColors[0][0][2];
-                    faceColors[0][0][2] = faceColors[0][2][0];
-                    faceColors[0][2][0] = buffer;
-                    buffer = faceColors[0][1][0];
-                    faceColors[0][1][0] = faceColors[0][1][2];
-                    faceColors[0][1][2] = buffer;
-                    buffer = faceColors[0][0][1];
-                    faceColors[0][0][1] = faceColors[0][2][1];
-                    faceColors[0][2][1] = buffer;
-                    buffer = faceColors[2][0][0];
-                    faceColors[2][0][0] = faceColors[3][0][0];
-                    faceColors[3][0][0] = buffer;
-                    buffer = faceColors[4][0][0];
-                    faceColors[4][0][0] = faceColors[5][0][0];
-                    faceColors[5][0][0] = buffer;
-                    buffer = faceColors[2][1][0];
-                    faceColors[2][1][0] = faceColors[3][1][0];
-                    faceColors[3][1][0] = buffer;
-                    buffer = faceColors[4][1][0];
-                    faceColors[4][1][0] = faceColors[5][1][0];
-                    faceColors[5][1][0] = buffer;
-                    buffer = faceColors[2][2][0];
-                    faceColors[2][2][0] = faceColors[3][2][0];
-                    faceColors[3][2][0] = buffer;
-                    buffer = faceColors[4][2][0];
-                    faceColors[4][2][0] = faceColors[5][2][0];
-                    faceColors[5][2][0] = buffer;
-                }
-            }
-            case 'D' -> {
-                if(move.charAt(1)==' '){
-                    buffer = faceColors[1][0][0];
-                    faceColors[1][0][0] = faceColors[1][0][2];
-                    faceColors[1][0][2] = faceColors[1][2][2];
-                    faceColors[1][2][2] = faceColors[1][2][0];
-                    faceColors[1][2][0] = buffer;
-                    buffer = faceColors[1][1][0];
-                    faceColors[1][1][0] = faceColors[1][0][1];
-                    faceColors[1][0][1] = faceColors[1][1][2];
-                    faceColors[1][1][2] = faceColors[1][2][1];
-                    faceColors[1][2][1] = buffer;
-                    buffer = faceColors[2][0][2];
-                    faceColors[2][0][2] = faceColors[5][0][2];
-                    faceColors[5][0][2] = faceColors[3][0][2];
-                    faceColors[3][0][2] = faceColors[4][0][2];
-                    faceColors[4][0][2] = buffer;
-                    buffer = faceColors[2][1][2];
-                    faceColors[2][1][2] = faceColors[5][1][2];
-                    faceColors[5][1][2] = faceColors[3][1][2];
-                    faceColors[3][1][2] = faceColors[4][1][2];
-                    faceColors[4][1][2] = buffer;
-                    buffer = faceColors[2][2][2];
-                    faceColors[2][2][2] = faceColors[5][2][2];
-                    faceColors[5][2][2] = faceColors[3][2][2];
-                    faceColors[3][2][2] = faceColors[4][2][2];
-                    faceColors[4][2][2] = buffer;
-                } else if (move.charAt(1)=='\''){
-                    buffer = faceColors[1][0][0];
-                    faceColors[1][0][0] = faceColors[1][2][0];
-                    faceColors[1][2][0] = faceColors[1][2][2];
-                    faceColors[1][2][2] = faceColors[1][0][2];
-                    faceColors[1][0][2] = buffer;
-                    buffer = faceColors[1][1][0];
-                    faceColors[1][1][0] = faceColors[1][2][1];
-                    faceColors[1][2][1] = faceColors[1][1][2];
-                    faceColors[1][1][2] = faceColors[1][0][1];
-                    faceColors[1][0][1] = buffer;
-                    buffer = faceColors[2][0][2];
-                    faceColors[2][0][2] = faceColors[4][0][2];
-                    faceColors[4][0][2] = faceColors[3][0][2];
-                    faceColors[3][0][2] = faceColors[5][0][2];
-                    faceColors[5][0][2] = buffer;
-                    buffer = faceColors[2][1][2];
-                    faceColors[2][1][2] = faceColors[4][1][2];
-                    faceColors[4][1][2] = faceColors[3][1][2];
-                    faceColors[3][1][2] = faceColors[5][1][2];
-                    faceColors[5][1][2] = buffer;
-                    buffer = faceColors[2][2][2];
-                    faceColors[2][2][2] = faceColors[4][2][2];
-                    faceColors[4][2][2] = faceColors[3][2][2];
-                    faceColors[3][2][2] = faceColors[5][2][2];
-                    faceColors[5][2][2] = buffer;
-                } else {
-                    buffer = faceColors[1][0][0];
-                    faceColors[1][0][0] = faceColors[1][2][2];
-                    faceColors[1][2][2] = buffer;
-                    buffer = faceColors[1][0][2];
-                    faceColors[1][0][2] = faceColors[1][2][0];
-                    faceColors[1][2][0] = buffer;
-                    buffer = faceColors[1][1][0];
-                    faceColors[1][1][0] = faceColors[1][1][2];
-                    faceColors[1][1][2] = buffer;
-                    buffer = faceColors[1][0][1];
-                    faceColors[1][0][1] = faceColors[1][2][1];
-                    faceColors[1][2][1] = buffer;
-                    buffer = faceColors[2][0][2];
-                    faceColors[2][0][2] = faceColors[3][0][2];
-                    faceColors[3][0][2] = buffer;
-                    buffer = faceColors[4][0][2];
-                    faceColors[4][0][2] = faceColors[5][0][2];
-                    faceColors[5][0][2] = buffer;
-                    buffer = faceColors[2][1][2];
-                    faceColors[2][1][2] = faceColors[3][1][2];
-                    faceColors[3][1][2] = buffer;
-                    buffer = faceColors[4][1][2];
-                    faceColors[4][1][2] = faceColors[5][1][2];
-                    faceColors[5][1][2] = buffer;
-                    buffer = faceColors[2][2][2];
-                    faceColors[2][2][2] = faceColors[3][2][2];
-                    faceColors[3][2][2] = buffer;
-                    buffer = faceColors[4][2][2];
-                    faceColors[4][2][2] = faceColors[5][2][2];
-                    faceColors[5][2][2] = buffer;
-                }
-            }
-            case 'F' -> {
-                if(move.charAt(1)==' '){
-                    buffer = faceColors[2][0][0];
-                    faceColors[2][0][0] = faceColors[2][0][2];
-                    faceColors[2][0][2] = faceColors[2][2][2];
-                    faceColors[2][2][2] = faceColors[2][2][0];
-                    faceColors[2][2][0] = buffer;
-                    buffer = faceColors[2][1][0];
-                    faceColors[2][1][0] = faceColors[2][0][1];
-                    faceColors[2][0][1] = faceColors[2][1][2];
-                    faceColors[2][1][2] = faceColors[2][2][1];
-                    faceColors[2][2][1] = buffer;
-                    buffer = faceColors[0][0][2];
-                    faceColors[0][0][2] = faceColors[5][2][2];
-                    faceColors[5][2][2] = faceColors[1][2][0];
-                    faceColors[1][2][0] = faceColors[4][0][0];
-                    faceColors[4][0][0] = buffer;
-                    buffer = faceColors[0][1][2];
-                    faceColors[0][1][2] = faceColors[5][2][1];
-                    faceColors[5][2][1] = faceColors[1][1][0];
-                    faceColors[1][1][0] = faceColors[4][0][1];
-                    faceColors[4][0][1] = buffer;
-                    buffer = faceColors[0][2][2];
-                    faceColors[0][2][2] = faceColors[5][2][0];
-                    faceColors[5][2][0] = faceColors[1][0][0];
-                    faceColors[1][0][0] = faceColors[4][0][2];
-                    faceColors[4][0][2] = buffer;
-                } else if (move.charAt(1)=='\''){
-                    buffer = faceColors[2][0][0];
-                    faceColors[2][0][0] = faceColors[2][2][0];
-                    faceColors[2][2][0] = faceColors[2][2][2];
-                    faceColors[2][2][2] = faceColors[2][0][2];
-                    faceColors[2][0][2] = buffer;
-                    buffer = faceColors[2][1][0];
-                    faceColors[2][1][0] = faceColors[2][2][1];
-                    faceColors[2][2][1] = faceColors[2][1][2];
-                    faceColors[2][1][2] = faceColors[2][0][1];
-                    faceColors[2][0][1] = buffer;
-                    buffer = faceColors[0][0][2];
-                    faceColors[0][0][2] = faceColors[4][0][0];
-                    faceColors[4][0][0] = faceColors[1][2][0];
-                    faceColors[1][2][0] = faceColors[5][2][2];
-                    faceColors[5][2][2] = buffer;
-                    buffer = faceColors[0][1][2];
-                    faceColors[0][1][2] = faceColors[4][0][1];
-                    faceColors[4][0][1] = faceColors[1][1][0];
-                    faceColors[1][1][0] = faceColors[5][2][1];
-                    faceColors[5][2][1] = buffer;
-                    buffer = faceColors[0][2][2];
-                    faceColors[0][2][2] = faceColors[4][0][2];
-                    faceColors[4][0][2] = faceColors[1][0][0];
-                    faceColors[1][0][0] = faceColors[5][2][0];
-                    faceColors[5][2][0] = buffer;
-                } else {
-                    buffer = faceColors[2][0][0];
-                    faceColors[2][0][0] = faceColors[2][2][2];
-                    faceColors[2][2][2] = buffer;
-                    buffer = faceColors[2][0][2];
-                    faceColors[2][0][2] = faceColors[2][2][0];
-                    faceColors[2][2][0] = buffer;
-                    buffer = faceColors[2][1][0];
-                    faceColors[2][1][0] = faceColors[2][1][2];
-                    faceColors[2][1][2] = buffer;
-                    buffer = faceColors[2][0][1];
-                    faceColors[2][0][1] = faceColors[2][2][1];
-                    faceColors[2][2][1] = buffer;
-                    buffer = faceColors[0][0][2];
-                    faceColors[0][0][2] = faceColors[1][2][0];
-                    faceColors[1][2][0] = buffer;
-                    buffer = faceColors[5][2][2];
-                    faceColors[5][2][2] = faceColors[4][0][0];
-                    faceColors[4][0][0] = buffer;
-                    buffer = faceColors[0][1][2];
-                    faceColors[0][1][2] = faceColors[1][1][0];
-                    faceColors[1][1][0] = buffer;
-                    buffer = faceColors[5][2][1];
-                    faceColors[5][2][1] = faceColors[4][0][1];
-                    faceColors[4][0][1] = buffer;
-                    buffer = faceColors[0][2][2];
-                    faceColors[0][2][2] = faceColors[1][0][0];
-                    faceColors[1][0][0] = buffer;
-                    buffer = faceColors[5][2][0];
-                    faceColors[5][2][0] = faceColors[4][0][2];
-                    faceColors[4][0][2] = buffer;
-                }
-            }
-            case 'B' -> {
-                if(move.charAt(1)==' '){
-                    buffer = faceColors[3][0][0];
-                    faceColors[3][0][0] = faceColors[3][0][2];
-                    faceColors[3][0][2] = faceColors[3][2][2];
-                    faceColors[3][2][2] = faceColors[3][2][0];
-                    faceColors[3][2][0] = buffer;
-                    buffer = faceColors[3][1][0];
-                    faceColors[3][1][0] = faceColors[3][0][1];
-                    faceColors[3][0][1] = faceColors[3][1][2];
-                    faceColors[3][1][2] = faceColors[3][2][1];
-                    faceColors[3][2][1] = buffer;
-                    buffer = faceColors[0][0][0];
-                    faceColors[0][0][0] = faceColors[4][2][0];
-                    faceColors[4][2][0] = faceColors[1][2][2];
-                    faceColors[1][2][2] = faceColors[5][0][2];
-                    faceColors[5][0][2] = buffer;
-                    buffer = faceColors[0][1][0];
-                    faceColors[0][1][0] = faceColors[4][2][1];
-                    faceColors[4][2][1] = faceColors[1][1][2];
-                    faceColors[1][1][2] = faceColors[5][0][1];
-                    faceColors[5][0][1] = buffer;
-                    buffer = faceColors[0][2][0];
-                    faceColors[0][2][0] = faceColors[4][2][2];
-                    faceColors[4][2][2] = faceColors[1][0][2];
-                    faceColors[1][0][2] = faceColors[5][0][0];
-                    faceColors[5][0][0] = buffer;
-                } else if (move.charAt(1)=='\''){
-                    buffer = faceColors[3][0][0];
-                    faceColors[3][0][0] = faceColors[3][2][0];
-                    faceColors[3][2][0] = faceColors[3][2][2];
-                    faceColors[3][2][2] = faceColors[3][0][2];
-                    faceColors[3][0][2] = buffer;
-                    buffer = faceColors[3][1][0];
-                    faceColors[3][1][0] = faceColors[3][2][1];
-                    faceColors[3][2][1] = faceColors[3][1][2];
-                    faceColors[3][1][2] = faceColors[3][0][1];
-                    faceColors[3][0][1] = buffer;
-                    buffer = faceColors[0][0][0];
-                    faceColors[0][0][0] = faceColors[5][0][2];
-                    faceColors[5][0][2] = faceColors[1][2][2];
-                    faceColors[1][2][2] = faceColors[4][2][0];
-                    faceColors[4][2][0] = buffer;
-                    buffer = faceColors[0][1][0];
-                    faceColors[0][1][0] = faceColors[5][0][1];
-                    faceColors[5][0][1] = faceColors[1][1][2];
-                    faceColors[1][1][2] = faceColors[4][2][1];
-                    faceColors[4][2][1] = buffer;
-                    buffer = faceColors[0][2][0];
-                    faceColors[0][2][0] = faceColors[5][0][0];
-                    faceColors[5][0][0] = faceColors[1][0][2];
-                    faceColors[1][0][2] = faceColors[4][2][2];
-                    faceColors[4][2][2] = buffer;
-                } else {
-                    buffer = faceColors[3][0][0];
-                    faceColors[3][0][0] = faceColors[3][2][2];
-                    faceColors[3][2][2] = buffer;
-                    buffer = faceColors[3][0][2];
-                    faceColors[3][0][2] = faceColors[3][2][0];
-                    faceColors[3][2][0] = buffer;
-                    buffer = faceColors[3][1][0];
-                    faceColors[3][1][0] = faceColors[3][1][2];
-                    faceColors[3][1][2] = buffer;
-                    buffer = faceColors[3][0][1];
-                    faceColors[3][0][1] = faceColors[3][2][1];
-                    faceColors[3][2][1] = buffer;
-                    buffer = faceColors[0][0][0];
-                    faceColors[0][0][0] = faceColors[1][2][2];
-                    faceColors[1][2][2] = buffer;
-                    buffer = faceColors[4][2][0];
-                    faceColors[4][2][0] = faceColors[5][0][2];
-                    faceColors[5][0][2] = buffer;
-                    buffer = faceColors[0][1][0];
-                    faceColors[0][1][0] = faceColors[1][1][2];
-                    faceColors[1][1][2] = buffer;
-                    buffer = faceColors[4][2][1];
-                    faceColors[4][2][1] = faceColors[5][0][1];
-                    faceColors[5][0][1] = buffer;
-                    buffer = faceColors[0][2][0];
-                    faceColors[0][2][0] = faceColors[1][0][2];
-                    faceColors[1][0][2] = buffer;
-                    buffer = faceColors[4][2][2];
-                    faceColors[4][2][2] = faceColors[5][0][0];
-                    faceColors[5][0][0] = buffer;
-                }
-            }
-            case 'R' -> {
-                if(move.charAt(1)==' '){
-                    buffer = faceColors[4][0][0];
-                    faceColors[4][0][0] = faceColors[4][0][2];
-                    faceColors[4][0][2] = faceColors[4][2][2];
-                    faceColors[4][2][2] = faceColors[4][2][0];
-                    faceColors[4][2][0] = buffer;
-                    buffer = faceColors[4][1][0];
-                    faceColors[4][1][0] = faceColors[4][0][1];
-                    faceColors[4][0][1] = faceColors[4][1][2];
-                    faceColors[4][1][2] = faceColors[4][2][1];
-                    faceColors[4][2][1] = buffer;
-                    buffer = faceColors[0][2][0];
-                    faceColors[0][2][0] = faceColors[2][2][0];
-                    faceColors[2][2][0] = faceColors[1][2][0];
-                    faceColors[1][2][0] = faceColors[3][0][2];
-                    faceColors[3][0][2] = buffer;
-                    buffer = faceColors[0][2][1];
-                    faceColors[0][2][1] = faceColors[2][2][1];
-                    faceColors[2][2][1] = faceColors[1][2][1];
-                    faceColors[1][2][1] = faceColors[3][0][1];
-                    faceColors[3][0][1] = buffer;
-                    buffer = faceColors[0][2][2];
-                    faceColors[0][2][2] = faceColors[2][2][2];
-                    faceColors[2][2][2] = faceColors[1][2][2];
-                    faceColors[1][2][2] = faceColors[3][0][0];
-                    faceColors[3][0][0] = buffer;
-                } else if (move.charAt(1)=='\''){
-                    buffer = faceColors[4][0][0];
-                    faceColors[4][0][0] = faceColors[4][2][0];
-                    faceColors[4][2][0] = faceColors[4][2][2];
-                    faceColors[4][2][2] = faceColors[4][0][2];
-                    faceColors[4][0][2] = buffer;
-                    buffer = faceColors[4][1][0];
-                    faceColors[4][1][0] = faceColors[4][2][1];
-                    faceColors[4][2][1] = faceColors[4][1][2];
-                    faceColors[4][1][2] = faceColors[4][0][1];
-                    faceColors[4][0][1] = buffer;
-                    buffer = faceColors[0][2][0];
-                    faceColors[0][2][0] = faceColors[3][0][2];
-                    faceColors[3][0][2] = faceColors[1][2][0];
-                    faceColors[1][2][0] = faceColors[2][2][0];
-                    faceColors[2][2][0] = buffer;
-                    buffer = faceColors[0][2][1];
-                    faceColors[0][2][1] = faceColors[3][0][1];
-                    faceColors[3][0][1] = faceColors[1][2][1];
-                    faceColors[1][2][1] = faceColors[2][2][1];
-                    faceColors[2][2][1] = buffer;
-                    buffer = faceColors[0][2][2];
-                    faceColors[0][2][2] = faceColors[3][0][0];
-                    faceColors[3][0][0] = faceColors[1][2][2];
-                    faceColors[1][2][2] = faceColors[2][2][2];
-                    faceColors[2][2][2] = buffer;
-                } else {
-                    buffer = faceColors[4][0][0];
-                    faceColors[4][0][0] = faceColors[4][2][2];
-                    faceColors[4][2][2] = buffer;
-                    buffer = faceColors[4][0][2];
-                    faceColors[4][0][2] = faceColors[4][2][0];
-                    faceColors[4][2][0] = buffer;
-                    buffer = faceColors[4][1][0];
-                    faceColors[4][1][0] = faceColors[4][1][2];
-                    faceColors[4][1][2] = buffer;
-                    buffer = faceColors[4][0][1];
-                    faceColors[4][0][1] = faceColors[4][2][1];
-                    faceColors[4][2][1] = buffer;
-                    buffer = faceColors[0][2][0];
-                    faceColors[0][2][0] = faceColors[1][2][0];
-                    faceColors[1][2][0] = buffer;
-                    buffer = faceColors[2][2][0];
-                    faceColors[2][2][0] = faceColors[3][0][2];
-                    faceColors[3][0][2] = buffer;
-                    buffer = faceColors[0][2][1];
-                    faceColors[0][2][1] = faceColors[1][2][1];
-                    faceColors[1][2][1] = buffer;
-                    buffer = faceColors[2][2][1];
-                    faceColors[2][2][1] = faceColors[3][0][1];
-                    faceColors[3][0][1] = buffer;
-                    buffer = faceColors[0][2][2];
-                    faceColors[0][2][2] = faceColors[1][2][2];
-                    faceColors[1][2][2] = buffer;
-                    buffer = faceColors[2][2][2];
-                    faceColors[2][2][2] = faceColors[3][0][0];
-                    faceColors[3][0][0] = buffer;
-                }
-            }
-            case 'L' -> {
-                if(move.charAt(1)==' '){
-                    buffer = faceColors[5][0][0];
-                    faceColors[5][0][0] = faceColors[5][0][2];
-                    faceColors[5][0][2] = faceColors[5][2][2];
-                    faceColors[5][2][2] = faceColors[5][2][0];
-                    faceColors[5][2][0] = buffer;
-                    buffer = faceColors[5][1][0];
-                    faceColors[5][1][0] = faceColors[5][0][1];
-                    faceColors[5][0][1] = faceColors[5][1][2];
-                    faceColors[5][1][2] = faceColors[5][2][1];
-                    faceColors[5][2][1] = buffer;
-                    buffer = faceColors[0][0][0];
-                    faceColors[0][0][0] = faceColors[3][2][2];
-                    faceColors[3][2][2] = faceColors[1][0][0];
-                    faceColors[1][0][0] = faceColors[2][0][0];
-                    faceColors[2][0][0] = buffer;
-                    buffer = faceColors[0][0][1];
-                    faceColors[0][0][1] = faceColors[3][2][1];
-                    faceColors[3][2][1] = faceColors[1][0][1];
-                    faceColors[1][0][1] = faceColors[2][0][1];
-                    faceColors[2][0][1] = buffer;
-                    buffer = faceColors[0][0][2];
-                    faceColors[0][0][2] = faceColors[3][2][0];
-                    faceColors[3][2][0] = faceColors[1][0][2];
-                    faceColors[1][0][2] = faceColors[2][0][2];
-                    faceColors[2][0][2] = buffer;
-                } else if (move.charAt(1)=='\''){
-                    buffer = faceColors[5][0][0];
-                    faceColors[5][0][0] = faceColors[5][2][0];
-                    faceColors[5][2][0] = faceColors[5][2][2];
-                    faceColors[5][2][2] = faceColors[5][0][2];
-                    faceColors[5][0][2] = buffer;
-                    buffer = faceColors[5][1][0];
-                    faceColors[5][1][0] = faceColors[5][2][1];
-                    faceColors[5][2][1] = faceColors[5][1][2];
-                    faceColors[5][1][2] = faceColors[5][0][1];
-                    faceColors[5][0][1] = buffer;
-                    buffer = faceColors[0][0][0];
-                    faceColors[0][0][0] = faceColors[2][0][0];
-                    faceColors[2][0][0] = faceColors[1][0][0];
-                    faceColors[1][0][0] = faceColors[3][2][2];
-                    faceColors[3][2][2] = buffer;
-                    buffer = faceColors[0][0][1];
-                    faceColors[0][0][1] = faceColors[2][0][1];
-                    faceColors[2][0][1] = faceColors[1][0][1];
-                    faceColors[1][0][1] = faceColors[3][2][1];
-                    faceColors[3][2][1] = buffer;
-                    buffer = faceColors[0][0][2];
-                    faceColors[0][0][2] = faceColors[2][0][2];
-                    faceColors[2][0][2] = faceColors[1][0][2];
-                    faceColors[1][0][2] = faceColors[3][2][0];
-                    faceColors[3][2][0] = buffer;
-                } else {
-                    buffer = faceColors[5][0][0];
-                    faceColors[5][0][0] = faceColors[5][2][2];
-                    faceColors[5][2][2] = buffer;
-                    buffer = faceColors[5][0][2];
-                    faceColors[5][0][2] = faceColors[5][2][0];
-                    faceColors[5][2][0] = buffer;
-                    buffer = faceColors[5][1][0];
-                    faceColors[5][1][0] = faceColors[5][1][2];
-                    faceColors[5][1][2] = buffer;
-                    buffer = faceColors[5][0][1];
-                    faceColors[5][0][1] = faceColors[5][2][1];
-                    faceColors[5][2][1] = buffer;
-                    buffer = faceColors[0][0][0];
-                    faceColors[0][0][0] = faceColors[1][0][0];
-                    faceColors[1][0][0] = buffer;
-                    buffer = faceColors[3][2][2];
-                    faceColors[3][2][2] = faceColors[2][0][0];
-                    faceColors[2][0][0] = buffer;
-                    buffer = faceColors[0][0][1];
-                    faceColors[0][0][1] = faceColors[1][0][1];
-                    faceColors[1][0][1] = buffer;
-                    buffer = faceColors[3][2][1];
-                    faceColors[3][2][1] = faceColors[2][0][1];
-                    faceColors[2][0][1] = buffer;
-                    buffer = faceColors[0][0][2];
-                    faceColors[0][0][2] = faceColors[1][0][2];
-                    faceColors[1][0][2] = buffer;
-                    buffer = faceColors[3][2][0];
-                    faceColors[3][2][0] = faceColors[2][0][2];
-                    faceColors[2][0][2] = buffer;
-                }
-            }
-        }
-    }
-
-    private void applyMoveO (String move){
-        int buffer;
-        switch (move.charAt(0)){
-            case 'U' -> {
-                if(move.charAt(1)==' '){
-                    buffer = faceColorsO[0][0][0];
-                    faceColorsO[0][0][0] = faceColorsO[0][0][2];
-                    faceColorsO[0][0][2] = faceColorsO[0][2][2];
-                    faceColorsO[0][2][2] = faceColorsO[0][2][0];
-                    faceColorsO[0][2][0] = buffer;
-                    buffer = faceColorsO[0][1][0];
-                    faceColorsO[0][1][0] = faceColorsO[0][0][1];
-                    faceColorsO[0][0][1] = faceColorsO[0][1][2];
-                    faceColorsO[0][1][2] = faceColorsO[0][2][1];
-                    faceColorsO[0][2][1] = buffer;
-                    buffer = faceColorsO[2][0][0];
-                    faceColorsO[2][0][0] = faceColorsO[4][0][0];
-                    faceColorsO[4][0][0] = faceColorsO[3][0][0];
-                    faceColorsO[3][0][0] = faceColorsO[5][0][0];
-                    faceColorsO[5][0][0] = buffer;
-                    buffer = faceColorsO[2][1][0];
-                    faceColorsO[2][1][0] = faceColorsO[4][1][0];
-                    faceColorsO[4][1][0] = faceColorsO[3][1][0];
-                    faceColorsO[3][1][0] = faceColorsO[5][1][0];
-                    faceColorsO[5][1][0] = buffer;
-                    buffer = faceColorsO[2][2][0];
-                    faceColorsO[2][2][0] = faceColorsO[4][2][0];
-                    faceColorsO[4][2][0] = faceColorsO[3][2][0];
-                    faceColorsO[3][2][0] = faceColorsO[5][2][0];
-                    faceColorsO[5][2][0] = buffer;
-                } else if (move.charAt(1)=='\''){
-                    buffer = faceColorsO[0][0][0];
-                    faceColorsO[0][0][0] = faceColorsO[0][2][0];
-                    faceColorsO[0][2][0] = faceColorsO[0][2][2];
-                    faceColorsO[0][2][2] = faceColorsO[0][0][2];
-                    faceColorsO[0][0][2] = buffer;
-                    buffer = faceColorsO[0][1][0];
-                    faceColorsO[0][1][0] = faceColorsO[0][2][1];
-                    faceColorsO[0][2][1] = faceColorsO[0][1][2];
-                    faceColorsO[0][1][2] = faceColorsO[0][0][1];
-                    faceColorsO[0][0][1] = buffer;
-                    buffer = faceColorsO[2][0][0];
-                    faceColorsO[2][0][0] = faceColorsO[5][0][0];
-                    faceColorsO[5][0][0] = faceColorsO[3][0][0];
-                    faceColorsO[3][0][0] = faceColorsO[4][0][0];
-                    faceColorsO[4][0][0] = buffer;
-                    buffer = faceColorsO[2][1][0];
-                    faceColorsO[2][1][0] = faceColorsO[5][1][0];
-                    faceColorsO[5][1][0] = faceColorsO[3][1][0];
-                    faceColorsO[3][1][0] = faceColorsO[4][1][0];
-                    faceColorsO[4][1][0] = buffer;
-                    buffer = faceColorsO[2][2][0];
-                    faceColorsO[2][2][0] = faceColorsO[5][2][0];
-                    faceColorsO[5][2][0] = faceColorsO[3][2][0];
-                    faceColorsO[3][2][0] = faceColorsO[4][2][0];
-                    faceColorsO[4][2][0] = buffer;
-                } else {
-                    buffer = faceColorsO[0][0][0];
-                    faceColorsO[0][0][0] = faceColorsO[0][2][2];
-                    faceColorsO[0][2][2] = buffer;
-                    buffer = faceColorsO[0][0][2];
-                    faceColorsO[0][0][2] = faceColorsO[0][2][0];
-                    faceColorsO[0][2][0] = buffer;
-                    buffer = faceColorsO[0][1][0];
-                    faceColorsO[0][1][0] = faceColorsO[0][1][2];
-                    faceColorsO[0][1][2] = buffer;
-                    buffer = faceColorsO[0][0][1];
-                    faceColorsO[0][0][1] = faceColorsO[0][2][1];
-                    faceColorsO[0][2][1] = buffer;
-                    buffer = faceColorsO[2][0][0];
-                    faceColorsO[2][0][0] = faceColorsO[3][0][0];
-                    faceColorsO[3][0][0] = buffer;
-                    buffer = faceColorsO[4][0][0];
-                    faceColorsO[4][0][0] = faceColorsO[5][0][0];
-                    faceColorsO[5][0][0] = buffer;
-                    buffer = faceColorsO[2][1][0];
-                    faceColorsO[2][1][0] = faceColorsO[3][1][0];
-                    faceColorsO[3][1][0] = buffer;
-                    buffer = faceColorsO[4][1][0];
-                    faceColorsO[4][1][0] = faceColorsO[5][1][0];
-                    faceColorsO[5][1][0] = buffer;
-                    buffer = faceColorsO[2][2][0];
-                    faceColorsO[2][2][0] = faceColorsO[3][2][0];
-                    faceColorsO[3][2][0] = buffer;
-                    buffer = faceColorsO[4][2][0];
-                    faceColorsO[4][2][0] = faceColorsO[5][2][0];
-                    faceColorsO[5][2][0] = buffer;
-                }
-            }
-            case 'D' -> {
-                if(move.charAt(1)==' '){
-                    buffer = faceColorsO[1][0][0];
-                    faceColorsO[1][0][0] = faceColorsO[1][0][2];
-                    faceColorsO[1][0][2] = faceColorsO[1][2][2];
-                    faceColorsO[1][2][2] = faceColorsO[1][2][0];
-                    faceColorsO[1][2][0] = buffer;
-                    buffer = faceColorsO[1][1][0];
-                    faceColorsO[1][1][0] = faceColorsO[1][0][1];
-                    faceColorsO[1][0][1] = faceColorsO[1][1][2];
-                    faceColorsO[1][1][2] = faceColorsO[1][2][1];
-                    faceColorsO[1][2][1] = buffer;
-                    buffer = faceColorsO[2][0][2];
-                    faceColorsO[2][0][2] = faceColorsO[5][0][2];
-                    faceColorsO[5][0][2] = faceColorsO[3][0][2];
-                    faceColorsO[3][0][2] = faceColorsO[4][0][2];
-                    faceColorsO[4][0][2] = buffer;
-                    buffer = faceColorsO[2][1][2];
-                    faceColorsO[2][1][2] = faceColorsO[5][1][2];
-                    faceColorsO[5][1][2] = faceColorsO[3][1][2];
-                    faceColorsO[3][1][2] = faceColorsO[4][1][2];
-                    faceColorsO[4][1][2] = buffer;
-                    buffer = faceColorsO[2][2][2];
-                    faceColorsO[2][2][2] = faceColorsO[5][2][2];
-                    faceColorsO[5][2][2] = faceColorsO[3][2][2];
-                    faceColorsO[3][2][2] = faceColorsO[4][2][2];
-                    faceColorsO[4][2][2] = buffer;
-                } else if (move.charAt(1)=='\''){
-                    buffer = faceColorsO[1][0][0];
-                    faceColorsO[1][0][0] = faceColorsO[1][2][0];
-                    faceColorsO[1][2][0] = faceColorsO[1][2][2];
-                    faceColorsO[1][2][2] = faceColorsO[1][0][2];
-                    faceColorsO[1][0][2] = buffer;
-                    buffer = faceColorsO[1][1][0];
-                    faceColorsO[1][1][0] = faceColorsO[1][2][1];
-                    faceColorsO[1][2][1] = faceColorsO[1][1][2];
-                    faceColorsO[1][1][2] = faceColorsO[1][0][1];
-                    faceColorsO[1][0][1] = buffer;
-                    buffer = faceColorsO[2][0][2];
-                    faceColorsO[2][0][2] = faceColorsO[4][0][2];
-                    faceColorsO[4][0][2] = faceColorsO[3][0][2];
-                    faceColorsO[3][0][2] = faceColorsO[5][0][2];
-                    faceColorsO[5][0][2] = buffer;
-                    buffer = faceColorsO[2][1][2];
-                    faceColorsO[2][1][2] = faceColorsO[4][1][2];
-                    faceColorsO[4][1][2] = faceColorsO[3][1][2];
-                    faceColorsO[3][1][2] = faceColorsO[5][1][2];
-                    faceColorsO[5][1][2] = buffer;
-                    buffer = faceColorsO[2][2][2];
-                    faceColorsO[2][2][2] = faceColorsO[4][2][2];
-                    faceColorsO[4][2][2] = faceColorsO[3][2][2];
-                    faceColorsO[3][2][2] = faceColorsO[5][2][2];
-                    faceColorsO[5][2][2] = buffer;
-                } else {
-                    buffer = faceColorsO[1][0][0];
-                    faceColorsO[1][0][0] = faceColorsO[1][2][2];
-                    faceColorsO[1][2][2] = buffer;
-                    buffer = faceColorsO[1][0][2];
-                    faceColorsO[1][0][2] = faceColorsO[1][2][0];
-                    faceColorsO[1][2][0] = buffer;
-                    buffer = faceColorsO[1][1][0];
-                    faceColorsO[1][1][0] = faceColorsO[1][1][2];
-                    faceColorsO[1][1][2] = buffer;
-                    buffer = faceColorsO[1][0][1];
-                    faceColorsO[1][0][1] = faceColorsO[1][2][1];
-                    faceColorsO[1][2][1] = buffer;
-                    buffer = faceColorsO[2][0][2];
-                    faceColorsO[2][0][2] = faceColorsO[3][0][2];
-                    faceColorsO[3][0][2] = buffer;
-                    buffer = faceColorsO[4][0][2];
-                    faceColorsO[4][0][2] = faceColorsO[5][0][2];
-                    faceColorsO[5][0][2] = buffer;
-                    buffer = faceColorsO[2][1][2];
-                    faceColorsO[2][1][2] = faceColorsO[3][1][2];
-                    faceColorsO[3][1][2] = buffer;
-                    buffer = faceColorsO[4][1][2];
-                    faceColorsO[4][1][2] = faceColorsO[5][1][2];
-                    faceColorsO[5][1][2] = buffer;
-                    buffer = faceColorsO[2][2][2];
-                    faceColorsO[2][2][2] = faceColorsO[3][2][2];
-                    faceColorsO[3][2][2] = buffer;
-                    buffer = faceColorsO[4][2][2];
-                    faceColorsO[4][2][2] = faceColorsO[5][2][2];
-                    faceColorsO[5][2][2] = buffer;
-                }
-            }
-            case 'F' -> {
-                if(move.charAt(1)==' '){
-                    buffer = faceColorsO[2][0][0];
-                    faceColorsO[2][0][0] = faceColorsO[2][0][2];
-                    faceColorsO[2][0][2] = faceColorsO[2][2][2];
-                    faceColorsO[2][2][2] = faceColorsO[2][2][0];
-                    faceColorsO[2][2][0] = buffer;
-                    buffer = faceColorsO[2][1][0];
-                    faceColorsO[2][1][0] = faceColorsO[2][0][1];
-                    faceColorsO[2][0][1] = faceColorsO[2][1][2];
-                    faceColorsO[2][1][2] = faceColorsO[2][2][1];
-                    faceColorsO[2][2][1] = buffer;
-                    buffer = faceColorsO[0][0][2];
-                    faceColorsO[0][0][2] = faceColorsO[5][2][2];
-                    faceColorsO[5][2][2] = faceColorsO[1][2][0];
-                    faceColorsO[1][2][0] = faceColorsO[4][0][0];
-                    faceColorsO[4][0][0] = buffer;
-                    buffer = faceColorsO[0][1][2];
-                    faceColorsO[0][1][2] = faceColorsO[5][2][1];
-                    faceColorsO[5][2][1] = faceColorsO[1][1][0];
-                    faceColorsO[1][1][0] = faceColorsO[4][0][1];
-                    faceColorsO[4][0][1] = buffer;
-                    buffer = faceColorsO[0][2][2];
-                    faceColorsO[0][2][2] = faceColorsO[5][2][0];
-                    faceColorsO[5][2][0] = faceColorsO[1][0][0];
-                    faceColorsO[1][0][0] = faceColorsO[4][0][2];
-                    faceColorsO[4][0][2] = buffer;
-                } else if (move.charAt(1)=='\''){
-                    buffer = faceColorsO[2][0][0];
-                    faceColorsO[2][0][0] = faceColorsO[2][2][0];
-                    faceColorsO[2][2][0] = faceColorsO[2][2][2];
-                    faceColorsO[2][2][2] = faceColorsO[2][0][2];
-                    faceColorsO[2][0][2] = buffer;
-                    buffer = faceColorsO[2][1][0];
-                    faceColorsO[2][1][0] = faceColorsO[2][2][1];
-                    faceColorsO[2][2][1] = faceColorsO[2][1][2];
-                    faceColorsO[2][1][2] = faceColorsO[2][0][1];
-                    faceColorsO[2][0][1] = buffer;
-                    buffer = faceColorsO[0][0][2];
-                    faceColorsO[0][0][2] = faceColorsO[4][0][0];
-                    faceColorsO[4][0][0] = faceColorsO[1][2][0];
-                    faceColorsO[1][2][0] = faceColorsO[5][2][2];
-                    faceColorsO[5][2][2] = buffer;
-                    buffer = faceColorsO[0][1][2];
-                    faceColorsO[0][1][2] = faceColorsO[4][0][1];
-                    faceColorsO[4][0][1] = faceColorsO[1][1][0];
-                    faceColorsO[1][1][0] = faceColorsO[5][2][1];
-                    faceColorsO[5][2][1] = buffer;
-                    buffer = faceColorsO[0][2][2];
-                    faceColorsO[0][2][2] = faceColorsO[4][0][2];
-                    faceColorsO[4][0][2] = faceColorsO[1][0][0];
-                    faceColorsO[1][0][0] = faceColorsO[5][2][0];
-                    faceColorsO[5][2][0] = buffer;
-                } else {
-                    buffer = faceColorsO[2][0][0];
-                    faceColorsO[2][0][0] = faceColorsO[2][2][2];
-                    faceColorsO[2][2][2] = buffer;
-                    buffer = faceColorsO[2][0][2];
-                    faceColorsO[2][0][2] = faceColorsO[2][2][0];
-                    faceColorsO[2][2][0] = buffer;
-                    buffer = faceColorsO[2][1][0];
-                    faceColorsO[2][1][0] = faceColorsO[2][1][2];
-                    faceColorsO[2][1][2] = buffer;
-                    buffer = faceColorsO[2][0][1];
-                    faceColorsO[2][0][1] = faceColorsO[2][2][1];
-                    faceColorsO[2][2][1] = buffer;
-                    buffer = faceColorsO[0][0][2];
-                    faceColorsO[0][0][2] = faceColorsO[1][2][0];
-                    faceColorsO[1][2][0] = buffer;
-                    buffer = faceColorsO[5][2][2];
-                    faceColorsO[5][2][2] = faceColorsO[4][0][0];
-                    faceColorsO[4][0][0] = buffer;
-                    buffer = faceColorsO[0][1][2];
-                    faceColorsO[0][1][2] = faceColorsO[1][1][0];
-                    faceColorsO[1][1][0] = buffer;
-                    buffer = faceColorsO[5][2][1];
-                    faceColorsO[5][2][1] = faceColorsO[4][0][1];
-                    faceColorsO[4][0][1] = buffer;
-                    buffer = faceColorsO[0][2][2];
-                    faceColorsO[0][2][2] = faceColorsO[1][0][0];
-                    faceColorsO[1][0][0] = buffer;
-                    buffer = faceColorsO[5][2][0];
-                    faceColorsO[5][2][0] = faceColorsO[4][0][2];
-                    faceColorsO[4][0][2] = buffer;
-                }
-            }
-            case 'B' -> {
-                if(move.charAt(1)==' '){
-                    buffer = faceColorsO[3][0][0];
-                    faceColorsO[3][0][0] = faceColorsO[3][0][2];
-                    faceColorsO[3][0][2] = faceColorsO[3][2][2];
-                    faceColorsO[3][2][2] = faceColorsO[3][2][0];
-                    faceColorsO[3][2][0] = buffer;
-                    buffer = faceColorsO[3][1][0];
-                    faceColorsO[3][1][0] = faceColorsO[3][0][1];
-                    faceColorsO[3][0][1] = faceColorsO[3][1][2];
-                    faceColorsO[3][1][2] = faceColorsO[3][2][1];
-                    faceColorsO[3][2][1] = buffer;
-                    buffer = faceColorsO[0][0][0];
-                    faceColorsO[0][0][0] = faceColorsO[4][2][0];
-                    faceColorsO[4][2][0] = faceColorsO[1][2][2];
-                    faceColorsO[1][2][2] = faceColorsO[5][0][2];
-                    faceColorsO[5][0][2] = buffer;
-                    buffer = faceColorsO[0][1][0];
-                    faceColorsO[0][1][0] = faceColorsO[4][2][1];
-                    faceColorsO[4][2][1] = faceColorsO[1][1][2];
-                    faceColorsO[1][1][2] = faceColorsO[5][0][1];
-                    faceColorsO[5][0][1] = buffer;
-                    buffer = faceColorsO[0][2][0];
-                    faceColorsO[0][2][0] = faceColorsO[4][2][2];
-                    faceColorsO[4][2][2] = faceColorsO[1][0][2];
-                    faceColorsO[1][0][2] = faceColorsO[5][0][0];
-                    faceColorsO[5][0][0] = buffer;
-                } else if (move.charAt(1)=='\''){
-                    buffer = faceColorsO[3][0][0];
-                    faceColorsO[3][0][0] = faceColorsO[3][2][0];
-                    faceColorsO[3][2][0] = faceColorsO[3][2][2];
-                    faceColorsO[3][2][2] = faceColorsO[3][0][2];
-                    faceColorsO[3][0][2] = buffer;
-                    buffer = faceColorsO[3][1][0];
-                    faceColorsO[3][1][0] = faceColorsO[3][2][1];
-                    faceColorsO[3][2][1] = faceColorsO[3][1][2];
-                    faceColorsO[3][1][2] = faceColorsO[3][0][1];
-                    faceColorsO[3][0][1] = buffer;
-                    buffer = faceColorsO[0][0][0];
-                    faceColorsO[0][0][0] = faceColorsO[5][0][2];
-                    faceColorsO[5][0][2] = faceColorsO[1][2][2];
-                    faceColorsO[1][2][2] = faceColorsO[4][2][0];
-                    faceColorsO[4][2][0] = buffer;
-                    buffer = faceColorsO[0][1][0];
-                    faceColorsO[0][1][0] = faceColorsO[5][0][1];
-                    faceColorsO[5][0][1] = faceColorsO[1][1][2];
-                    faceColorsO[1][1][2] = faceColorsO[4][2][1];
-                    faceColorsO[4][2][1] = buffer;
-                    buffer = faceColorsO[0][2][0];
-                    faceColorsO[0][2][0] = faceColorsO[5][0][0];
-                    faceColorsO[5][0][0] = faceColorsO[1][0][2];
-                    faceColorsO[1][0][2] = faceColorsO[4][2][2];
-                    faceColorsO[4][2][2] = buffer;
-                } else {
-                    buffer = faceColorsO[3][0][0];
-                    faceColorsO[3][0][0] = faceColorsO[3][2][2];
-                    faceColorsO[3][2][2] = buffer;
-                    buffer = faceColorsO[3][0][2];
-                    faceColorsO[3][0][2] = faceColorsO[3][2][0];
-                    faceColorsO[3][2][0] = buffer;
-                    buffer = faceColorsO[3][1][0];
-                    faceColorsO[3][1][0] = faceColorsO[3][1][2];
-                    faceColorsO[3][1][2] = buffer;
-                    buffer = faceColorsO[3][0][1];
-                    faceColorsO[3][0][1] = faceColorsO[3][2][1];
-                    faceColorsO[3][2][1] = buffer;
-                    buffer = faceColorsO[0][0][0];
-                    faceColorsO[0][0][0] = faceColorsO[1][2][2];
-                    faceColorsO[1][2][2] = buffer;
-                    buffer = faceColorsO[4][2][0];
-                    faceColorsO[4][2][0] = faceColorsO[5][0][2];
-                    faceColorsO[5][0][2] = buffer;
-                    buffer = faceColorsO[0][1][0];
-                    faceColorsO[0][1][0] = faceColorsO[1][1][2];
-                    faceColorsO[1][1][2] = buffer;
-                    buffer = faceColorsO[4][2][1];
-                    faceColorsO[4][2][1] = faceColorsO[5][0][1];
-                    faceColorsO[5][0][1] = buffer;
-                    buffer = faceColorsO[0][2][0];
-                    faceColorsO[0][2][0] = faceColorsO[1][0][2];
-                    faceColorsO[1][0][2] = buffer;
-                    buffer = faceColorsO[4][2][2];
-                    faceColorsO[4][2][2] = faceColorsO[5][0][0];
-                    faceColorsO[5][0][0] = buffer;
-                }
-            }
-            case 'R' -> {
-                if(move.charAt(1)==' '){
-                    buffer = faceColorsO[4][0][0];
-                    faceColorsO[4][0][0] = faceColorsO[4][0][2];
-                    faceColorsO[4][0][2] = faceColorsO[4][2][2];
-                    faceColorsO[4][2][2] = faceColorsO[4][2][0];
-                    faceColorsO[4][2][0] = buffer;
-                    buffer = faceColorsO[4][1][0];
-                    faceColorsO[4][1][0] = faceColorsO[4][0][1];
-                    faceColorsO[4][0][1] = faceColorsO[4][1][2];
-                    faceColorsO[4][1][2] = faceColorsO[4][2][1];
-                    faceColorsO[4][2][1] = buffer;
-                    buffer = faceColorsO[0][2][0];
-                    faceColorsO[0][2][0] = faceColorsO[2][2][0];
-                    faceColorsO[2][2][0] = faceColorsO[1][2][0];
-                    faceColorsO[1][2][0] = faceColorsO[3][0][2];
-                    faceColorsO[3][0][2] = buffer;
-                    buffer = faceColorsO[0][2][1];
-                    faceColorsO[0][2][1] = faceColorsO[2][2][1];
-                    faceColorsO[2][2][1] = faceColorsO[1][2][1];
-                    faceColorsO[1][2][1] = faceColorsO[3][0][1];
-                    faceColorsO[3][0][1] = buffer;
-                    buffer = faceColorsO[0][2][2];
-                    faceColorsO[0][2][2] = faceColorsO[2][2][2];
-                    faceColorsO[2][2][2] = faceColorsO[1][2][2];
-                    faceColorsO[1][2][2] = faceColorsO[3][0][0];
-                    faceColorsO[3][0][0] = buffer;
-                } else if (move.charAt(1)=='\''){
-                    buffer = faceColorsO[4][0][0];
-                    faceColorsO[4][0][0] = faceColorsO[4][2][0];
-                    faceColorsO[4][2][0] = faceColorsO[4][2][2];
-                    faceColorsO[4][2][2] = faceColorsO[4][0][2];
-                    faceColorsO[4][0][2] = buffer;
-                    buffer = faceColorsO[4][1][0];
-                    faceColorsO[4][1][0] = faceColorsO[4][2][1];
-                    faceColorsO[4][2][1] = faceColorsO[4][1][2];
-                    faceColorsO[4][1][2] = faceColorsO[4][0][1];
-                    faceColorsO[4][0][1] = buffer;
-                    buffer = faceColorsO[0][2][0];
-                    faceColorsO[0][2][0] = faceColorsO[3][0][2];
-                    faceColorsO[3][0][2] = faceColorsO[1][2][0];
-                    faceColorsO[1][2][0] = faceColorsO[2][2][0];
-                    faceColorsO[2][2][0] = buffer;
-                    buffer = faceColorsO[0][2][1];
-                    faceColorsO[0][2][1] = faceColorsO[3][0][1];
-                    faceColorsO[3][0][1] = faceColorsO[1][2][1];
-                    faceColorsO[1][2][1] = faceColorsO[2][2][1];
-                    faceColorsO[2][2][1] = buffer;
-                    buffer = faceColorsO[0][2][2];
-                    faceColorsO[0][2][2] = faceColorsO[3][0][0];
-                    faceColorsO[3][0][0] = faceColorsO[1][2][2];
-                    faceColorsO[1][2][2] = faceColorsO[2][2][2];
-                    faceColorsO[2][2][2] = buffer;
-                } else {
-                    buffer = faceColorsO[4][0][0];
-                    faceColorsO[4][0][0] = faceColorsO[4][2][2];
-                    faceColorsO[4][2][2] = buffer;
-                    buffer = faceColorsO[4][0][2];
-                    faceColorsO[4][0][2] = faceColorsO[4][2][0];
-                    faceColorsO[4][2][0] = buffer;
-                    buffer = faceColorsO[4][1][0];
-                    faceColorsO[4][1][0] = faceColorsO[4][1][2];
-                    faceColorsO[4][1][2] = buffer;
-                    buffer = faceColorsO[4][0][1];
-                    faceColorsO[4][0][1] = faceColorsO[4][2][1];
-                    faceColorsO[4][2][1] = buffer;
-                    buffer = faceColorsO[0][2][0];
-                    faceColorsO[0][2][0] = faceColorsO[1][2][0];
-                    faceColorsO[1][2][0] = buffer;
-                    buffer = faceColorsO[2][2][0];
-                    faceColorsO[2][2][0] = faceColorsO[3][0][2];
-                    faceColorsO[3][0][2] = buffer;
-                    buffer = faceColorsO[0][2][1];
-                    faceColorsO[0][2][1] = faceColorsO[1][2][1];
-                    faceColorsO[1][2][1] = buffer;
-                    buffer = faceColorsO[2][2][1];
-                    faceColorsO[2][2][1] = faceColorsO[3][0][1];
-                    faceColorsO[3][0][1] = buffer;
-                    buffer = faceColorsO[0][2][2];
-                    faceColorsO[0][2][2] = faceColorsO[1][2][2];
-                    faceColorsO[1][2][2] = buffer;
-                    buffer = faceColorsO[2][2][2];
-                    faceColorsO[2][2][2] = faceColorsO[3][0][0];
-                    faceColorsO[3][0][0] = buffer;
-                }
-            }
-            case 'L' -> {
-                if(move.charAt(1)==' '){
-                    buffer = faceColorsO[5][0][0];
-                    faceColorsO[5][0][0] = faceColorsO[5][0][2];
-                    faceColorsO[5][0][2] = faceColorsO[5][2][2];
-                    faceColorsO[5][2][2] = faceColorsO[5][2][0];
-                    faceColorsO[5][2][0] = buffer;
-                    buffer = faceColorsO[5][1][0];
-                    faceColorsO[5][1][0] = faceColorsO[5][0][1];
-                    faceColorsO[5][0][1] = faceColorsO[5][1][2];
-                    faceColorsO[5][1][2] = faceColorsO[5][2][1];
-                    faceColorsO[5][2][1] = buffer;
-                    buffer = faceColorsO[0][0][0];
-                    faceColorsO[0][0][0] = faceColorsO[3][2][2];
-                    faceColorsO[3][2][2] = faceColorsO[1][0][0];
-                    faceColorsO[1][0][0] = faceColorsO[2][0][0];
-                    faceColorsO[2][0][0] = buffer;
-                    buffer = faceColorsO[0][0][1];
-                    faceColorsO[0][0][1] = faceColorsO[3][2][1];
-                    faceColorsO[3][2][1] = faceColorsO[1][0][1];
-                    faceColorsO[1][0][1] = faceColorsO[2][0][1];
-                    faceColorsO[2][0][1] = buffer;
-                    buffer = faceColorsO[0][0][2];
-                    faceColorsO[0][0][2] = faceColorsO[3][2][0];
-                    faceColorsO[3][2][0] = faceColorsO[1][0][2];
-                    faceColorsO[1][0][2] = faceColorsO[2][0][2];
-                    faceColorsO[2][0][2] = buffer;
-                } else if (move.charAt(1)=='\''){
-                    buffer = faceColorsO[5][0][0];
-                    faceColorsO[5][0][0] = faceColorsO[5][2][0];
-                    faceColorsO[5][2][0] = faceColorsO[5][2][2];
-                    faceColorsO[5][2][2] = faceColorsO[5][0][2];
-                    faceColorsO[5][0][2] = buffer;
-                    buffer = faceColorsO[5][1][0];
-                    faceColorsO[5][1][0] = faceColorsO[5][2][1];
-                    faceColorsO[5][2][1] = faceColorsO[5][1][2];
-                    faceColorsO[5][1][2] = faceColorsO[5][0][1];
-                    faceColorsO[5][0][1] = buffer;
-                    buffer = faceColorsO[0][0][0];
-                    faceColorsO[0][0][0] = faceColorsO[2][0][0];
-                    faceColorsO[2][0][0] = faceColorsO[1][0][0];
-                    faceColorsO[1][0][0] = faceColorsO[3][2][2];
-                    faceColorsO[3][2][2] = buffer;
-                    buffer = faceColorsO[0][0][1];
-                    faceColorsO[0][0][1] = faceColorsO[2][0][1];
-                    faceColorsO[2][0][1] = faceColorsO[1][0][1];
-                    faceColorsO[1][0][1] = faceColorsO[3][2][1];
-                    faceColorsO[3][2][1] = buffer;
-                    buffer = faceColorsO[0][0][2];
-                    faceColorsO[0][0][2] = faceColorsO[2][0][2];
-                    faceColorsO[2][0][2] = faceColorsO[1][0][2];
-                    faceColorsO[1][0][2] = faceColorsO[3][2][0];
-                    faceColorsO[3][2][0] = buffer;
-                } else {
-                    buffer = faceColorsO[5][0][0];
-                    faceColorsO[5][0][0] = faceColorsO[5][2][2];
-                    faceColorsO[5][2][2] = buffer;
-                    buffer = faceColorsO[5][0][2];
-                    faceColorsO[5][0][2] = faceColorsO[5][2][0];
-                    faceColorsO[5][2][0] = buffer;
-                    buffer = faceColorsO[5][1][0];
-                    faceColorsO[5][1][0] = faceColorsO[5][1][2];
-                    faceColorsO[5][1][2] = buffer;
-                    buffer = faceColorsO[5][0][1];
-                    faceColorsO[5][0][1] = faceColorsO[5][2][1];
-                    faceColorsO[5][2][1] = buffer;
-                    buffer = faceColorsO[0][0][0];
-                    faceColorsO[0][0][0] = faceColorsO[1][0][0];
-                    faceColorsO[1][0][0] = buffer;
-                    buffer = faceColorsO[3][2][2];
-                    faceColorsO[3][2][2] = faceColorsO[2][0][0];
-                    faceColorsO[2][0][0] = buffer;
-                    buffer = faceColorsO[0][0][1];
-                    faceColorsO[0][0][1] = faceColorsO[1][0][1];
-                    faceColorsO[1][0][1] = buffer;
-                    buffer = faceColorsO[3][2][1];
-                    faceColorsO[3][2][1] = faceColorsO[2][0][1];
-                    faceColorsO[2][0][1] = buffer;
-                    buffer = faceColorsO[0][0][2];
-                    faceColorsO[0][0][2] = faceColorsO[1][0][2];
-                    faceColorsO[1][0][2] = buffer;
-                    buffer = faceColorsO[3][2][0];
-                    faceColorsO[3][2][0] = faceColorsO[2][0][2];
-                    faceColorsO[2][0][2] = buffer;
-                }
-            }
-        }
-    }
-
-    private String reverse (String input){
-        if (input.isEmpty()) return "";
-        StringBuilder output = new StringBuilder();
-        for (int i = 0; i < input.length(); i = i + 2) {
-            if(input.charAt(i+1)==' '){
-                output.insert(0, input.charAt(i) + "'");
-            } else if (input.charAt(i+1)=='\''){
-                output.insert(0, input.charAt(i) + " ");
-            } else {
-                output.insert(0, input.substring(i, i + 2));
-            }
-        }
-        return output.toString();
-    }
-
-    private String cleanUp (String input){
-        if (input.isEmpty()) return "";
-        StringBuilder output = new StringBuilder();
-        for (int i = 0; i < input.length()-1; i++) {
-            if(input.charAt(i)=='U'||input.charAt(i)=='D'||input.charAt(i)=='F'||input.charAt(i)=='B'||input.charAt(i)=='R'||input.charAt(i)=='L'){
-                if(input.charAt(i+1)=='\''||input.charAt(i+1)=='2'){
-                    output.append(input.substring(i, i + 2));
-                } else {
-                    output.append(input.charAt(i)).append(" ");
-                }
-            }
-        }
-        if(input.charAt(input.length()-1)=='U'||input.charAt(input.length()-1)=='D'||input.charAt(input.length()-1)=='F'||input.charAt(input.length()-1)=='B'||input.charAt(input.length()-1)=='R'||input.charAt(input.length()-1)=='L'){
-            output.append(input.charAt(input.length() - 1)).append(" ");
-        }
-        return output.toString();
     }
 }
