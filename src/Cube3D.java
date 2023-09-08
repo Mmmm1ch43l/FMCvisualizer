@@ -1,20 +1,21 @@
 import java.awt.*;
 import java.awt.event.*;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Random;
+import java.util.Set;
 import javax.swing.*;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 
-public class Cube3D extends JPanel implements MouseListener, MouseMotionListener {
+public class Cube3D extends JPanel implements MouseListener, MouseMotionListener, KeyListener {
     //parameters
     private final double rotationSpeed = 0.008;
-    private final double perspective = 1/15.;
+    private final double perspective = 1/20.;
     private final double xAngleStart = -.3;
     private final double yAngleStart = .2;
     private final double rotationThreshold = 1e-10;
     private static final int windowWidth = 800;
     private static final int windowHeight = 800;
+    private static final double cubeShrinkage = .95;
     private double[][] basis = rotate(new double[][] {{1,0,0},{0,1,0},{0,0,1}}, xAngleStart, yAngleStart);
     // The rotation angles
     private double xAngle;
@@ -22,31 +23,26 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     private double[][] basisT;
     // The colors of the faces
     private final Color[] colors = {
-            Color.decode("#20000000"),//0: transparent gray
+            new Color(100, 100, 100, 30),//0: transparent gray
             Color.white,//1: white
             Color.yellow,//2: yellow
             Color.green,//3: green
             Color.decode("#0091ff"),//4: blue
             Color.red,//5: red
             Color.decode("#ff9500")};//6: orange
-    private int[][] faceColors = {
+    private int[][] cubeFaceColors = {
             {0,0,0,0,0,0},//0: fully transparent
-            {1,0,0,0,0,0},//1: white center
-            {0,2,0,0,0,0},//2: yellow center
-            {0,0,3,0,0,0},//3: green center
-            {0,0,0,4,0,0},//4: blue center
-            {0,0,0,0,5,0},//5: red center
-            {0,0,0,0,0,6},//6: orange center
-            {6,6,6,6,6,6},//7: fully orange
-            {5,6,6,6,6,6} //8: orange with red top
+            {4,4,4,4,4,4},//1: fully blue
+            {4,4,5,4,4,4},//2: blue with red top
+            {5,4,4,4,4,4},//3: blue with red side
+            {4,4,4,5,4,4},//4: blue with red bottom
+            {4,4,4,5,4,4},//5: blue with red bottom 2
+            {5,4,3,4,4,4} //6: blue with red side and green top
     };
-    private int[] cubeColors = {8,0,0,  0,1,0,  0,0,0,
-                                0,3,0,  6,0,5,  0,4,0,
-                                8,0,8,  0,2,0,  0,0,0};
-    private int[] orientations = {3,0,0,  0,0,0,  0,0,0,
-                                  0,0,0,  0,0,0,  0,0,0,
-                                  2,0,2,  0,0,0,  0,0,0};
-    private double[][] centerCoordinates;
+    private int[] cubeColors = new int[27];
+    private int[] faceColors = new int[162];
+    private double[][][] faceVertices = new double[162][][];
+    private double[][][] faceVerticesT = new double[162][][];
     // The previous mouse position
     private int prevX;
     private int prevY;
@@ -56,8 +52,48 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         // Add mouse listeners
         addMouseListener(this);
         addMouseMotionListener(this);
+        this.setFocusable(true);
+        this.requestFocus();
+        this.addKeyListener(this);
         // Set the background color
         setBackground(Color.white);
+        for (int i = 0; i < 27; i++) {
+            cubeColors[i] = 0;
+        }
+        //set up pieces:
+        cubeColors[2] = 6;
+        cubeColors[1] = 1;
+
+        for (int i = 0; i < 162; i++) {
+            faceColors[i] = 0;
+        }
+        faceColors[62] = 1;
+        faceColors[99] = 2;
+        faceColors[133] = 3;
+        faceColors[24] = 4;
+        faceColors[89] = 5;
+        faceColors[76] = 6;
+        int index;
+        double[] start;
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                for (int k = 0; k < 3; k++) {
+                    index = 6*i+18*j+54*k;
+                    start = new double[]{2 * i - 3+(1-cubeShrinkage)/2, 2 * j - 3+(1-cubeShrinkage)/2, 2 * k - 3+(1-cubeShrinkage)/2};
+                    faceVertices[index] = new double[][]{addAndShrink(new double[]{0, 0, 0},start), addAndShrink(new double[]{1, 0, 0},start), addAndShrink(new double[]{1, 1, 0},start), addAndShrink(new double[]{0, 1, 0},start)};
+                    faceVertices[index+1] = new double[][]{addAndShrink(new double[]{0, 0, 1},start), addAndShrink(new double[]{1, 0, 1},start), addAndShrink(new double[]{1, 1, 1},start), addAndShrink(new double[]{0, 1, 1},start)};
+                    faceVertices[index+2] = new double[][]{addAndShrink(new double[]{0, 0, 0},start), addAndShrink(new double[]{1, 0, 0},start), addAndShrink(new double[]{1, 0, 1},start), addAndShrink(new double[]{0, 0, 1},start)};
+                    faceVertices[index+3] = new double[][]{addAndShrink(new double[]{0, 1, 0},start), addAndShrink(new double[]{1, 1, 0},start), addAndShrink(new double[]{1, 1, 1},start), addAndShrink(new double[]{0, 1, 1},start)};
+                    faceVertices[index+4] = new double[][]{addAndShrink(new double[]{0, 0, 0},start), addAndShrink(new double[]{0, 1, 0},start), addAndShrink(new double[]{0, 1, 1},start), addAndShrink(new double[]{0, 0, 1},start)};
+                    faceVertices[index+5] = new double[][]{addAndShrink(new double[]{1, 0, 0},start), addAndShrink(new double[]{1, 1, 0},start), addAndShrink(new double[]{1, 1, 1},start), addAndShrink(new double[]{1, 0, 1},start)};
+                }
+            }
+        }
+        for (int i = 0; i < 27; i++) {
+            if(cubeColors[i]!=0){
+                System.arraycopy(cubeFaceColors[cubeColors[i]], 0, faceColors, 6 * i, 6);
+            }
+        }
     }
 
     public void paintComponent(Graphics g) {
@@ -72,88 +108,52 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         // Set the origin to the center of the panel
         g2d.translate(width / 2, height / 2);
         // Scale the cube to fit the panel
-        scale = Math.min(width / .9, height / .9) / 12.0;
+        scale = Math.min(width / .95, height / .95) / 12.0;
         basisT = rotate(basis, xAngle, yAngle);
-    }
-
-    private void drawCube(Graphics2D g2d, double[] centerCoordinate, int faceColor, int orientation) {
-        double[][] cubeVertices = new double[8][];
-        double[][][] faceVertices = new double[6][][];
-        double[][] basisTemp = new double[3][];
-        switch (orientation){
-            case 0 -> {
-                basisTemp[0] = basisT[0].clone();
-                basisTemp[1] = basisT[1].clone();
-                basisTemp[2] = basisT[2].clone();
-            }
-            case 1 -> {
-                basisTemp[0] = negative(basisT[0]);
-                basisTemp[1] = negative(basisT[1]);
-                basisTemp[2] = negative(basisT[2]);
-            }
-            case 2 -> {
-                basisTemp[0] = basisT[0].clone();
-                basisTemp[1] = negative(basisT[2]);
-                basisTemp[2] = basisT[1].clone();
-            }
-            case 3 -> {
-                basisTemp[0] = negative(basisT[0]);
-                basisTemp[1] = basisT[2].clone();
-                basisTemp[2] = negative(basisT[1]);
-            }
-            case 4 -> {
-                basisTemp[0] = negative(basisT[1]);
-                basisTemp[1] = basisT[0].clone();
-                basisTemp[2] = basisT[2].clone();
-            }
-            case 5 -> {
-                basisTemp[0] = basisT[1].clone();
-                basisTemp[1] = negative(basisT[0]);
-                basisTemp[2] = negative(basisT[2]);
-            }
-        }
-        int index;
-        for (int i = 0; i < 2; i++) {
-            for (int j = 0; j < 2; j++) {
-                for (int k = 0; k < 2; k++) {
-                    index = i+2*j+4*k;
-                    cubeVertices[index] = centerCoordinate.clone();
-                    cubeVertices[index][0] += ()
-                }
-            }
-        }
+        express();
         // Draw the faces of the cube
         // Get the average z value of the face
-        double[] z = new double[6];
-        for (int i = 0; i < 6; i++) {
-            z[i] = (faceVertices[i][0][2] + faceVertices[i][1][2] + faceVertices[i][2][2] + faceVertices[i][3][2]) / 4.0;
+        double[] z = new double[162];
+        for (int i = 0; i < 162; i++) {
+            z[i] = faceVerticesT[i][0][2] + faceVerticesT[i][1][2] + faceVerticesT[i][2][2] + faceVerticesT[i][3][2];
         }
         int[] order = rank(z);
-        for (int i = 0; i < 6; i++) {
-            drawFace(g2d, faceColors[faceColor][order[i]], faceVertices[order[i]][0], faceVertices[order[i]][1], faceVertices[order[i]][2], faceVertices[order[i]][3]);
+        for (int i = 0; i < 162; i++) {
+            drawFace(g2d, faceColors[order[i]], faceVerticesT[order[i]]);
         }
     }
 
-    private void drawFace(Graphics2D g2d, int color, double[] v1, double[] v2, double[] v3, double[] v4) {
-        int[] xCords = new int[] {(int) (v1[0]*Math.exp(v1[2]*perspective)*scale),
-                (int) (v2[0]*Math.exp(v1[2]*perspective)*scale),
-                (int) (v3[0]*Math.exp(v1[2]*perspective)*scale),
-                (int) (v4[0]*Math.exp(v1[2]*perspective)*scale)};
-        int[] yCords = new int[] {(int) (v1[1]*Math.exp(v1[2]*perspective)*scale),
-                (int) (v2[1]*Math.exp(v1[2]*perspective)*scale),
-                (int) (v3[1]*Math.exp(v1[2]*perspective)*scale),
-                (int) (v4[1]*Math.exp(v1[2]*perspective)*scale)};
+    private void drawFace(Graphics2D g2d, int color, double[][] vertices) {
+        int[] xCords = new int[] {(int) (vertices[0][0]*Math.exp(vertices[0][2]*perspective)*scale),
+                (int) (vertices[1][0]*Math.exp(vertices[1][2]*perspective)*scale),
+                (int) (vertices[2][0]*Math.exp(vertices[2][2]*perspective)*scale),
+                (int) (vertices[3][0]*Math.exp(vertices[3][2]*perspective)*scale)};
+        int[] yCords = new int[] {(int) (vertices[0][1]*Math.exp(vertices[0][2]*perspective)*scale),
+                (int) (vertices[1][1]*Math.exp(vertices[1][2]*perspective)*scale),
+                (int) (vertices[2][1]*Math.exp(vertices[2][2]*perspective)*scale),
+                (int) (vertices[3][1]*Math.exp(vertices[3][2]*perspective)*scale)};
         g2d.setColor(colors[color]);
         g2d.fillPolygon(xCords, yCords, 4);
         g2d.setColor(Color.darkGray);
         g2d.drawPolygon(xCords, yCords, 4);
     }
 
+    private void express(){
+        for (int i = 0; i < 162; i++) {
+            faceVerticesT[i] = new double[4][];
+            for (int j = 0; j < 4; j++) {
+                faceVerticesT[i][j] = new double[3];
+                for (int k = 0; k < 3; k++) {
+                    faceVerticesT[i][j][k] = faceVertices[i][j][0]*basisT[0][k] + faceVertices[i][j][1]*basisT[1][k] + faceVertices[i][j][2]*basisT[2][k];
+                }
+            }
+        }
+    }
+
     public void mousePressed(MouseEvent e) {
         // Store the current mouse position
         prevX = e.getX();
         prevY = e.getY();
-        //System.out.println("pressed");
     }
 
     public void mouseDragged(MouseEvent e) {
@@ -161,7 +161,6 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         xAngle = rotationSpeed * (e.getX() - prevX);
         yAngle = rotationSpeed * (e.getY() - prevY);
         repaint();
-        //System.out.print(".");
     }
 
     public void mouseClicked(MouseEvent e) {}
@@ -171,7 +170,6 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         yAngle = 0;
         basis = deepClone(basisT);
         repaint();
-        //System.out.println("\nreleased");
     }
     public void mouseEntered(MouseEvent e) {}
     public void mouseExited(MouseEvent e) {}
@@ -252,296 +250,304 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     }
 
     public void makeMove (String move){
+        Set<Integer> toBeRotated = new HashSet<Integer>();
+        int orientation = -1;
         int buffer;
         switch (move.charAt(0)) {
             case 'U' -> {
                 switch (move.charAt(1)){
                     case ' ' -> {
-                        buffer = state[0][4];
-                        state[0][4] = state[0][8];
-                        state[0][8] = state[0][5];
-                        state[0][5] = state[0][9];
-                        state[0][9] = buffer;
-                        buffer = state[1][0];
-                        state[1][0] = state[1][6];
-                        state[1][6] = state[1][1];
-                        state[1][1] = state[1][7];
-                        state[1][7] = buffer;
+                        buffer = cubeColors[20];
+                        cubeColors[20] = cubeColors[2];
+                        cubeColors[2] = cubeColors[0];
+                        cubeColors[0] = cubeColors[18];
+                        cubeColors[18] = buffer;
+                        buffer = cubeColors[19];
+                        cubeColors[19] = cubeColors[11];
+                        cubeColors[11] = cubeColors[1];
+                        cubeColors[1] = cubeColors[9];
+                        cubeColors[9] = buffer;
+                        orientation = 0;
                     }
                     case '\'' -> {
-                        buffer = state[0][4];
-                        state[0][4] = state[0][9];
-                        state[0][9] = state[0][5];
-                        state[0][5] = state[0][8];
-                        state[0][8] = buffer;
-                        buffer = state[1][0];
-                        state[1][0] = state[1][7];
-                        state[1][7] = state[1][1];
-                        state[1][1] = state[1][6];
-                        state[1][6] = buffer;
+                        buffer = cubeColors[20];
+                        cubeColors[20] = cubeColors[18];
+                        cubeColors[18] = cubeColors[0];
+                        cubeColors[0] = cubeColors[2];
+                        cubeColors[2] = buffer;
+                        buffer = cubeColors[19];
+                        cubeColors[19] = cubeColors[9];
+                        cubeColors[9] = cubeColors[1];
+                        cubeColors[1] = cubeColors[11];
+                        cubeColors[11] = buffer;
+                        orientation = 1;
                     }
                 }
+                toBeRotated.add(cubeColors[20]);
+                toBeRotated.add(cubeColors[2]);
+                toBeRotated.add(cubeColors[0]);
+                toBeRotated.add(cubeColors[18]);
+                toBeRotated.add(cubeColors[19]);
+                toBeRotated.add(cubeColors[9]);
+                toBeRotated.add(cubeColors[1]);
+                toBeRotated.add(cubeColors[11]);
             }
             case 'D' -> {
                 switch (move.charAt(1)){
                     case ' ' -> {
-                        buffer = state[0][6];
-                        state[0][6] = state[0][11];
-                        state[0][11] = state[0][7];
-                        state[0][7] = state[0][10];
-                        state[0][10] = buffer;
-                        buffer = state[1][2];
-                        state[1][2] = state[1][4];
-                        state[1][4] = state[1][3];
-                        state[1][3] = state[1][5];
-                        state[1][5] = buffer;
+                        buffer = cubeColors[26];
+                        cubeColors[26] = cubeColors[24];
+                        cubeColors[24] = cubeColors[6];
+                        cubeColors[6] = cubeColors[8];
+                        cubeColors[8] = buffer;
+                        buffer = cubeColors[25];
+                        cubeColors[25] = cubeColors[15];
+                        cubeColors[15] = cubeColors[7];
+                        cubeColors[7] = cubeColors[17];
+                        cubeColors[17] = buffer;
+                        orientation = 1;
                     }
                     case '\'' -> {
-                        buffer = state[0][6];
-                        state[0][6] = state[0][10];
-                        state[0][10] = state[0][7];
-                        state[0][7] = state[0][11];
-                        state[0][11] = buffer;
-                        buffer = state[1][2];
-                        state[1][2] = state[1][5];
-                        state[1][5] = state[1][3];
-                        state[1][3] = state[1][4];
-                        state[1][4] = buffer;
-                    }
-                    case '2' -> {
-                        buffer = state[0][6];
-                        state[0][6] = state[0][7];
-                        state[0][7] = buffer;
-                        buffer = state[0][10];
-                        state[0][10] = state[0][11];
-                        state[0][11] = buffer;
-                        buffer = state[1][2];
-                        state[1][2] = state[1][3];
-                        state[1][3] = buffer;
-                        buffer = state[1][4];
-                        state[1][4] = state[1][5];
-                        state[1][5] = buffer;
+                        buffer = cubeColors[26];
+                        cubeColors[26] = cubeColors[8];
+                        cubeColors[8] = cubeColors[6];
+                        cubeColors[6] = cubeColors[24];
+                        cubeColors[24] = buffer;
+                        buffer = cubeColors[25];
+                        cubeColors[25] = cubeColors[17];
+                        cubeColors[17] = cubeColors[7];
+                        cubeColors[7] = cubeColors[15];
+                        cubeColors[15] = buffer;
+                        orientation = 0;
                     }
                 }
+                toBeRotated.add(cubeColors[26]);
+                toBeRotated.add(cubeColors[8]);
+                toBeRotated.add(cubeColors[6]);
+                toBeRotated.add(cubeColors[24]);
+                toBeRotated.add(cubeColors[25]);
+                toBeRotated.add(cubeColors[17]);
+                toBeRotated.add(cubeColors[7]);
+                toBeRotated.add(cubeColors[15]);
             }
             case 'R' -> {
                 switch (move.charAt(1)){
                     case ' ' -> {
-                        state[3][state[1][0]] = (state[3][state[1][0]]+1)%3;
-                        state[3][state[1][4]] = (state[3][state[1][4]]+2)%3;
-                        state[3][state[1][2]] = (state[3][state[1][2]]+1)%3;
-                        state[3][state[1][6]] = (state[3][state[1][6]]+2)%3;
-                        buffer = state[0][0];
-                        state[0][0] = state[0][11];
-                        state[0][11] = state[0][3];
-                        state[0][3] = state[0][8];
-                        state[0][8] = buffer;
-                        buffer = state[1][0];
-                        state[1][0] = state[1][4];
-                        state[1][4] = state[1][2];
-                        state[1][2] = state[1][6];
-                        state[1][6] = buffer;
+                        buffer = cubeColors[20];
+                        cubeColors[20] = cubeColors[26];
+                        cubeColors[26] = cubeColors[8];
+                        cubeColors[8] = cubeColors[2];
+                        cubeColors[2] = buffer;
+                        buffer = cubeColors[23];
+                        cubeColors[23] = cubeColors[17];
+                        cubeColors[17] = cubeColors[5];
+                        cubeColors[5] = cubeColors[11];
+                        cubeColors[11] = buffer;
+                        orientation = 2;
                     }
                     case '\'' -> {
-                        state[3][state[1][0]] = (state[3][state[1][0]]+1)%3;
-                        state[3][state[1][4]] = (state[3][state[1][4]]+2)%3;
-                        state[3][state[1][2]] = (state[3][state[1][2]]+1)%3;
-                        state[3][state[1][6]] = (state[3][state[1][6]]+2)%3;
-                        buffer = state[0][0];
-                        state[0][0] = state[0][8];
-                        state[0][8] = state[0][3];
-                        state[0][3] = state[0][11];
-                        state[0][11] = buffer;
-                        buffer = state[1][0];
-                        state[1][0] = state[1][6];
-                        state[1][6] = state[1][2];
-                        state[1][2] = state[1][4];
-                        state[1][4] = buffer;
-                    }
-                    case '2' -> {
-                        buffer = state[0][0];
-                        state[0][0] = state[0][3];
-                        state[0][3] = buffer;
-                        buffer = state[0][8];
-                        state[0][8] = state[0][11];
-                        state[0][11] = buffer;
-                        buffer = state[1][0];
-                        state[1][0] = state[1][2];
-                        state[1][2] = buffer;
-                        buffer = state[1][4];
-                        state[1][4] = state[1][6];
-                        state[1][6] = buffer;
+                        buffer = cubeColors[20];
+                        cubeColors[20] = cubeColors[2];
+                        cubeColors[2] = cubeColors[8];
+                        cubeColors[8] = cubeColors[26];
+                        cubeColors[26] = buffer;
+                        buffer = cubeColors[23];
+                        cubeColors[23] = cubeColors[11];
+                        cubeColors[11] = cubeColors[5];
+                        cubeColors[5] = cubeColors[17];
+                        cubeColors[17] = buffer;
+                        orientation = 3;
                     }
                 }
+                toBeRotated.add(cubeColors[20]);
+                toBeRotated.add(cubeColors[2]);
+                toBeRotated.add(cubeColors[8]);
+                toBeRotated.add(cubeColors[26]);
+                toBeRotated.add(cubeColors[23]);
+                toBeRotated.add(cubeColors[11]);
+                toBeRotated.add(cubeColors[5]);
+                toBeRotated.add(cubeColors[17]);
             }
             case 'L' -> {
                 switch (move.charAt(1)){
                     case ' ' -> {
-                        state[3][state[1][1]] = (state[3][state[1][1]]+1)%3;
-                        state[3][state[1][5]] = (state[3][state[1][5]]+2)%3;
-                        state[3][state[1][3]] = (state[3][state[1][3]]+1)%3;
-                        state[3][state[1][7]] = (state[3][state[1][7]]+2)%3;
-                        buffer = state[0][1];
-                        state[0][1] = state[0][9];
-                        state[0][9] = state[0][2];
-                        state[0][2] = state[0][10];
-                        state[0][10] = buffer;
-                        buffer = state[1][1];
-                        state[1][1] = state[1][5];
-                        state[1][5] = state[1][3];
-                        state[1][3] = state[1][7];
-                        state[1][7] = buffer;
+                        buffer = cubeColors[18];
+                        cubeColors[18] = cubeColors[0];
+                        cubeColors[0] = cubeColors[6];
+                        cubeColors[6] = cubeColors[24];
+                        cubeColors[24] = buffer;
+                        buffer = cubeColors[21];
+                        cubeColors[21] = cubeColors[9];
+                        cubeColors[9] = cubeColors[3];
+                        cubeColors[3] = cubeColors[15];
+                        cubeColors[15] = buffer;
+                        orientation = 3;
                     }
                     case '\'' -> {
-                        state[3][state[1][1]] = (state[3][state[1][1]]+1)%3;
-                        state[3][state[1][5]] = (state[3][state[1][5]]+2)%3;
-                        state[3][state[1][3]] = (state[3][state[1][3]]+1)%3;
-                        state[3][state[1][7]] = (state[3][state[1][7]]+2)%3;
-                        buffer = state[0][1];
-                        state[0][1] = state[0][10];
-                        state[0][10] = state[0][2];
-                        state[0][2] = state[0][9];
-                        state[0][9] = buffer;
-                        buffer = state[1][1];
-                        state[1][1] = state[1][7];
-                        state[1][7] = state[1][3];
-                        state[1][3] = state[1][5];
-                        state[1][5] = buffer;
-                    }
-                    case '2' -> {
-                        buffer = state[0][1];
-                        state[0][1] = state[0][2];
-                        state[0][2] = buffer;
-                        buffer = state[0][9];
-                        state[0][9] = state[0][10];
-                        state[0][10] = buffer;
-                        buffer = state[1][1];
-                        state[1][1] = state[1][3];
-                        state[1][3] = buffer;
-                        buffer = state[1][5];
-                        state[1][5] = state[1][7];
-                        state[1][7] = buffer;
+                        buffer = cubeColors[18];
+                        cubeColors[18] = cubeColors[24];
+                        cubeColors[24] = cubeColors[6];
+                        cubeColors[6] = cubeColors[0];
+                        cubeColors[0] = buffer;
+                        buffer = cubeColors[21];
+                        cubeColors[21] = cubeColors[15];
+                        cubeColors[15] = cubeColors[3];
+                        cubeColors[3] = cubeColors[9];
+                        cubeColors[9] = buffer;
+                        orientation = 2;
                     }
                 }
+                toBeRotated.add(cubeColors[18]);
+                toBeRotated.add(cubeColors[24]);
+                toBeRotated.add(cubeColors[6]);
+                toBeRotated.add(cubeColors[0]);
+                toBeRotated.add(cubeColors[21]);
+                toBeRotated.add(cubeColors[15]);
+                toBeRotated.add(cubeColors[3]);
+                toBeRotated.add(cubeColors[9]);
             }
             case 'F' -> {
                 switch (move.charAt(1)){
                     case ' ' -> {
-                        state[2][state[0][0]] = (state[2][state[0][0]]+1)%2;
-                        state[2][state[0][4]] = (state[2][state[0][4]]+1)%2;
-                        state[2][state[0][1]] = (state[2][state[0][1]]+1)%2;
-                        state[2][state[0][7]] = (state[2][state[0][7]]+1)%2;
-                        state[3][state[1][0]] = (state[3][state[1][0]]+2)%3;
-                        state[3][state[1][7]] = (state[3][state[1][7]]+1)%3;
-                        state[3][state[1][3]] = (state[3][state[1][3]]+2)%3;
-                        state[3][state[1][4]] = (state[3][state[1][4]]+1)%3;
-                        buffer = state[0][0];
-                        state[0][0] = state[0][4];
-                        state[0][4] = state[0][1];
-                        state[0][1] = state[0][7];
-                        state[0][7] = buffer;
-                        buffer = state[1][0];
-                        state[1][0] = state[1][7];
-                        state[1][7] = state[1][3];
-                        state[1][3] = state[1][4];
-                        state[1][4] = buffer;
+                        buffer = cubeColors[18];
+                        cubeColors[18] = cubeColors[24];
+                        cubeColors[24] = cubeColors[26];
+                        cubeColors[26] = cubeColors[20];
+                        cubeColors[20] = buffer;
+                        buffer = cubeColors[19];
+                        cubeColors[19] = cubeColors[21];
+                        cubeColors[21] = cubeColors[25];
+                        cubeColors[25] = cubeColors[23];
+                        cubeColors[23] = buffer;
+                        orientation = 4;
                     }
                     case '\'' -> {
-                        state[2][state[0][0]] = (state[2][state[0][0]]+1)%2;
-                        state[2][state[0][4]] = (state[2][state[0][4]]+1)%2;
-                        state[2][state[0][1]] = (state[2][state[0][1]]+1)%2;
-                        state[2][state[0][7]] = (state[2][state[0][7]]+1)%2;
-                        state[3][state[1][0]] = (state[3][state[1][0]]+2)%3;
-                        state[3][state[1][7]] = (state[3][state[1][7]]+1)%3;
-                        state[3][state[1][3]] = (state[3][state[1][3]]+2)%3;
-                        state[3][state[1][4]] = (state[3][state[1][4]]+1)%3;
-                        buffer = state[0][0];
-                        state[0][0] = state[0][7];
-                        state[0][7] = state[0][1];
-                        state[0][1] = state[0][4];
-                        state[0][4] = buffer;
-                        buffer = state[1][0];
-                        state[1][0] = state[1][4];
-                        state[1][4] = state[1][3];
-                        state[1][3] = state[1][7];
-                        state[1][7] = buffer;
-                    }
-                    case '2' -> {
-                        buffer = state[0][0];
-                        state[0][0] = state[0][1];
-                        state[0][1] = buffer;
-                        buffer = state[0][4];
-                        state[0][4] = state[0][7];
-                        state[0][7] = buffer;
-                        buffer = state[1][0];
-                        state[1][0] = state[1][3];
-                        state[1][3] = buffer;
-                        buffer = state[1][4];
-                        state[1][4] = state[1][7];
-                        state[1][7] = buffer;
+                        buffer = cubeColors[18];
+                        cubeColors[18] = cubeColors[20];
+                        cubeColors[20] = cubeColors[26];
+                        cubeColors[26] = cubeColors[24];
+                        cubeColors[24] = buffer;
+                        buffer = cubeColors[19];
+                        cubeColors[19] = cubeColors[23];
+                        cubeColors[23] = cubeColors[25];
+                        cubeColors[25] = cubeColors[21];
+                        cubeColors[21] = buffer;
+                        orientation = 5;
                     }
                 }
+                toBeRotated.add(cubeColors[18]);
+                toBeRotated.add(cubeColors[20]);
+                toBeRotated.add(cubeColors[26]);
+                toBeRotated.add(cubeColors[24]);
+                toBeRotated.add(cubeColors[19]);
+                toBeRotated.add(cubeColors[23]);
+                toBeRotated.add(cubeColors[25]);
+                toBeRotated.add(cubeColors[21]);
             }
             case 'B' -> {
                 switch (move.charAt(1)){
                     case ' ' -> {
-                        state[2][state[0][2]] = (state[2][state[0][2]]+1)%2;
-                        state[2][state[0][5]] = (state[2][state[0][5]]+1)%2;
-                        state[2][state[0][3]] = (state[2][state[0][3]]+1)%2;
-                        state[2][state[0][6]] = (state[2][state[0][6]]+1)%2;
-                        state[3][state[1][1]] = (state[3][state[1][1]]+2)%3;
-                        state[3][state[1][6]] = (state[3][state[1][6]]+1)%3;
-                        state[3][state[1][2]] = (state[3][state[1][2]]+2)%3;
-                        state[3][state[1][5]] = (state[3][state[1][5]]+1)%3;
-                        buffer = state[0][2];
-                        state[0][2] = state[0][5];
-                        state[0][5] = state[0][3];
-                        state[0][3] = state[0][6];
-                        state[0][6] = buffer;
-                        buffer = state[1][1];
-                        state[1][1] = state[1][6];
-                        state[1][6] = state[1][2];
-                        state[1][2] = state[1][5];
-                        state[1][5] = buffer;
+                        buffer = cubeColors[0];
+                        cubeColors[0] = cubeColors[2];
+                        cubeColors[2] = cubeColors[8];
+                        cubeColors[8] = cubeColors[6];
+                        cubeColors[6] = buffer;
+                        buffer = cubeColors[1];
+                        cubeColors[1] = cubeColors[5];
+                        cubeColors[5] = cubeColors[7];
+                        cubeColors[7] = cubeColors[3];
+                        cubeColors[3] = buffer;
+                        orientation = 5;
                     }
                     case '\'' -> {
-                        state[2][state[0][2]] = (state[2][state[0][2]]+1)%2;
-                        state[2][state[0][5]] = (state[2][state[0][5]]+1)%2;
-                        state[2][state[0][3]] = (state[2][state[0][3]]+1)%2;
-                        state[2][state[0][6]] = (state[2][state[0][6]]+1)%2;
-                        state[3][state[1][1]] = (state[3][state[1][1]]+2)%3;
-                        state[3][state[1][6]] = (state[3][state[1][6]]+1)%3;
-                        state[3][state[1][2]] = (state[3][state[1][2]]+2)%3;
-                        state[3][state[1][5]] = (state[3][state[1][5]]+1)%3;
-                        buffer = state[0][2];
-                        state[0][2] = state[0][6];
-                        state[0][6] = state[0][3];
-                        state[0][3] = state[0][5];
-                        state[0][5] = buffer;
-                        buffer = state[1][1];
-                        state[1][1] = state[1][5];
-                        state[1][5] = state[1][2];
-                        state[1][2] = state[1][6];
-                        state[1][6] = buffer;
+                        buffer = cubeColors[0];
+                        cubeColors[0] = cubeColors[6];
+                        cubeColors[6] = cubeColors[8];
+                        cubeColors[8] = cubeColors[2];
+                        cubeColors[2] = buffer;
+                        buffer = cubeColors[1];
+                        cubeColors[1] = cubeColors[3];
+                        cubeColors[3] = cubeColors[7];
+                        cubeColors[7] = cubeColors[5];
+                        cubeColors[5] = buffer;
+                        orientation = 4;
                     }
-                    case '2' -> {
-                        buffer = state[0][2];
-                        state[0][2] = state[0][3];
-                        state[0][3] = buffer;
-                        buffer = state[0][5];
-                        state[0][5] = state[0][6];
-                        state[0][6] = buffer;
-                        buffer = state[1][1];
-                        state[1][1] = state[1][2];
-                        state[1][2] = buffer;
-                        buffer = state[1][5];
-                        state[1][5] = state[1][6];
-                        state[1][6] = buffer;
+                }
+                toBeRotated.add(cubeColors[0]);
+                toBeRotated.add(cubeColors[6]);
+                toBeRotated.add(cubeColors[8]);
+                toBeRotated.add(cubeColors[2]);
+                toBeRotated.add(cubeColors[1]);
+                toBeRotated.add(cubeColors[3]);
+                toBeRotated.add(cubeColors[7]);
+                toBeRotated.add(cubeColors[5]);
+            }
+        }
+        for (int cubeColor : toBeRotated) {
+            if(cubeColor!=0){
+                switch (orientation){
+                    case 0 -> {
+                        buffer = cubeFaceColors[cubeColor][0];
+                        cubeFaceColors[cubeColor][0] = cubeFaceColors[cubeColor][4];
+                        cubeFaceColors[cubeColor][4] = cubeFaceColors[cubeColor][1];
+                        cubeFaceColors[cubeColor][1] = cubeFaceColors[cubeColor][5];
+                        cubeFaceColors[cubeColor][5] = buffer;
+                    }
+                    case 1 -> {
+                        buffer = cubeFaceColors[cubeColor][0];
+                        cubeFaceColors[cubeColor][0] = cubeFaceColors[cubeColor][5];
+                        cubeFaceColors[cubeColor][5] = cubeFaceColors[cubeColor][1];
+                        cubeFaceColors[cubeColor][1] = cubeFaceColors[cubeColor][4];
+                        cubeFaceColors[cubeColor][4] = buffer;
+                    }
+                    case 2 -> {
+                        buffer = cubeFaceColors[cubeColor][0];
+                        cubeFaceColors[cubeColor][0] = cubeFaceColors[cubeColor][2];
+                        cubeFaceColors[cubeColor][2] = cubeFaceColors[cubeColor][1];
+                        cubeFaceColors[cubeColor][1] = cubeFaceColors[cubeColor][3];
+                        cubeFaceColors[cubeColor][3] = buffer;
+                    }
+                    case 3 -> {
+                        buffer = cubeFaceColors[cubeColor][0];
+                        cubeFaceColors[cubeColor][0] = cubeFaceColors[cubeColor][3];
+                        cubeFaceColors[cubeColor][3] = cubeFaceColors[cubeColor][1];
+                        cubeFaceColors[cubeColor][1] = cubeFaceColors[cubeColor][2];
+                        cubeFaceColors[cubeColor][2] = buffer;
+                    }
+                    case 4 -> {
+                        buffer = cubeFaceColors[cubeColor][2];
+                        cubeFaceColors[cubeColor][2] = cubeFaceColors[cubeColor][4];
+                        cubeFaceColors[cubeColor][4] = cubeFaceColors[cubeColor][3];
+                        cubeFaceColors[cubeColor][3] = cubeFaceColors[cubeColor][5];
+                        cubeFaceColors[cubeColor][5] = buffer;
+                    }
+                    case 5 -> {
+                        buffer = cubeFaceColors[cubeColor][2];
+                        cubeFaceColors[cubeColor][2] = cubeFaceColors[cubeColor][5];
+                        cubeFaceColors[cubeColor][5] = cubeFaceColors[cubeColor][3];
+                        cubeFaceColors[cubeColor][3] = cubeFaceColors[cubeColor][4];
+                        cubeFaceColors[cubeColor][4] = buffer;
                     }
                 }
             }
         }
+        for (int i = 0; i < 162; i++) {
+            faceColors[i] = 0;
+        }
+        faceColors[62] = 1;
+        faceColors[99] = 2;
+        faceColors[133] = 3;
+        faceColors[24] = 4;
+        faceColors[89] = 5;
+        faceColors[76] = 6;
+        for (int i = 0; i < 27; i++) {
+            if(cubeColors[i]!=0){
+                System.arraycopy(cubeFaceColors[cubeColors[i]], 0, faceColors, 6 * i, 6);
+            }
+        }
     }
+
+
 
     private double[] negative (double[] input){
         double[] output = input.clone();
@@ -549,6 +555,14 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
             output[i] *= -1;
         }
         return output;
+    }
+
+    private double[] addAndShrink (double[] base, double[] addition){
+        for (int i = 0; i < base.length; i++) {
+            base[i] *= 2*cubeShrinkage;
+            base[i] += addition[i];
+        }
+        return base;
     }
 
     private double[][] deepClone (double[][] input){
@@ -571,5 +585,34 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
             output[i] = deepClone(input[i]);
         }
         return output;
+    }
+
+    @Override
+    public void keyTyped(KeyEvent e) {
+
+    }
+
+    @Override
+    public void keyPressed(KeyEvent e) {
+        switch (e.getKeyChar()){
+            case 'j' -> makeMove("U ");
+            case 'f' -> makeMove("U'");
+            case 'i' -> makeMove("R ");
+            case 'k' -> makeMove("R'");
+            case 'd' -> makeMove("L ");
+            case 'e' -> makeMove("L'");
+            case 'h' -> makeMove("F ");
+            case 'g' -> makeMove("F'");
+            case 's' -> makeMove("D ");
+            case 'l' -> makeMove("D'");
+            case 'w' -> makeMove("B ");
+            case 'o' -> makeMove("B'");
+        }
+        repaint();
+    }
+
+    @Override
+    public void keyReleased(KeyEvent e) {
+
     }
 }
