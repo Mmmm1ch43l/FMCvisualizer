@@ -79,6 +79,20 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     private int prevY;
     private double scale;
 
+    Timer timer = new Timer(100, new ActionListener() {
+        public void actionPerformed(ActionEvent e) {
+            // Move the square by one step
+            currentStep++;
+            // Repaint the panel
+            repaint();
+            // Stop the timer when it reaches 10 steps
+            if (currentStep == 10) {
+                currentStep = 0;
+                timer.stop();
+            }
+        }
+    });
+
     public Cube3D() {
         // Add mouse listeners
         addMouseListener(this);
