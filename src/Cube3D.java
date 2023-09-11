@@ -25,15 +25,17 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     private double[][] basisT;
     private int currentStep = 0;
     private int orientation = 0;
+    private int currentSlide = 0;
     // The colors of the faces
     private final Color[] colors = {
-            new Color(100, 100, 100, 30),//0: transparent gray
+            Color.darkGray,//0: gray
             Color.white,//1: white
             Color.yellow,//2: yellow
             Color.green,//3: green
             Color.decode("#0091ff"),//4: blue
             Color.red,//5: red
-            Color.decode("#ff9500")};//6: orange
+            Color.decode("#ff9500"),//6: orange
+            new Color(100, 100, 100, 30)};//7: transparent gray
     private int[][] cubeFaceColors = {
             // 0 - 26: normal pieces
             {4,0,1,0,6,0},
@@ -49,7 +51,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
             {0,0,1,0,0,0},//10: white center
             {0,0,1,0,0,5},
             {0,0,0,0,6,0},//12: orange center
-            {0,0,0,0,0,0},//13: fully transparent
+            {7,7,7,7,7,7},//13: fully transparent
             {0,0,0,0,0,5},//14: red center
             {0,0,0,2,6,0},
             {0,0,0,2,0,0},//16: yellow center
@@ -64,11 +66,24 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
             {0,3,0,2,0,0},
             {0,3,0,2,0,5},
             {4,4,4,4,4,4},//27: fully blue
-            {4,4,5,4,4,4},//28: blue with red top
-            {5,4,4,4,4,4},//29: blue with red side
-            {4,4,4,5,4,4},//30: blue with red bottom
-            {4,4,4,5,4,4},//31: blue with red bottom 2
-            {5,4,3,4,4,4} //32: blue with red side and green top
+            {3,3,3,3,3,3},//28: fully green
+            {1,1,1,1,1,1},//29: fully white
+            {4,4,4,4,5,4},//30: blue with red side
+            {4,4,4,4,4,5},//31: blue with red other side
+            {3,3,3,5,3,3},//32: green with red bottom
+            {1,1,1,5,1,1},//33: red with red bottom
+    };
+    private int[][] cubeFaceColorsInit = deepClone(cubeFaceColors);
+    private int[][] slides = {
+            {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26},//normal cube
+            {13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,20,13,13,13,13,13,13},//1 corner
+            {13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,19,13,13,13,13,13,13,13},//1 edge
+            {13,13,13,13,13,13,27,27,27,13,13,13,13,13,13,27,27,27,13,13,13,13,13,13,27,27,27},//bottom face
+            {13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,27,13,13,13,13,13,28,13,29},//3 corners
+            {13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,30,13,13,13,13,13,32,13,33},//3 corners (oriented)
+            {13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,31,13,13,13,32,13,33},//3 corners (differently oriented)
+            {13,13,13,13,13,13,27,27,27,13,13,13,13,13,13,27,27,27,13,13,13,13,13,13,27,27,27},//bottom face
+            {13,13,13,27,27,27,13,13,13,13,13,13,27,27,27,13,13,13,13,13,13,27,27,27,13,13,13},//E-slice
     };
     private int[] cubeColors = new int[27];
     private int[] faceColors = new int[162];
@@ -130,16 +145,8 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         }
         //set up pieces:
         for (int i = 0; i < 27; i++) {
-            cubeColors[i] = i;
-        }
-
-        for (int i = 0; i < 162; i++) {
-            faceColors[i] = 0;
-        }
-        for (int i = 0; i < 27; i++) {
-            if(cubeColors[i]!=13){
-                System.arraycopy(cubeFaceColors[cubeColors[i]], 0, faceColors, 6 * i, 6);
-            }
+            cubeColors[i] = slides[currentSlide][i];
+            System.arraycopy(cubeFaceColors[cubeColors[i]], 0, faceColors, 6 * i, 6);
         }
         for (int i = 0; i < 162; i++) {
             turning[i] = false;
@@ -188,6 +195,8 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         for (int i = 0; i < 162; i++) {
             drawFace(g2d, faceColors[order[i]], faceVerticesT[order[i]]);
         }
+        g2d.setFont(new Font("Serif", Font.BOLD, 30));
+        g2d.drawString((currentSlide+1) + "/" + slides.length,width/2-60,height/2-20);
     }
 
     private void drawFace(Graphics2D g2d, int color, double[][] vertices) {
@@ -813,13 +822,8 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
                 }
             }
         }
-        for (int i = 0; i < 162; i++) {
-            faceColors[i] = 0;
-        }
         for (int i = 0; i < 27; i++) {
-            if(cubeColors[i]!=13){
-                System.arraycopy(cubeFaceColors[cubeColors[i]], 0, faceColors, 6 * i, 6);
-            }
+            System.arraycopy(cubeFaceColors[cubeColors[i]], 0, faceColors, 6 * i, 6);
         }
         timer.start();
     }
@@ -841,6 +845,21 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     }
     private double[][][] deeperClone (double[][][] input){
         double[][][] output = new double[input.length][][];
+        for (int i = 0; i < input.length; i++) {
+            output[i] = deepClone(input[i]);
+        }
+        return output;
+    }
+
+    private int[][] deepClone (int[][] input){
+        int[][] output = new int[input.length][];
+        for (int i = 0; i < input.length; i++) {
+            output[i] = input[i].clone();
+        }
+        return output;
+    }
+    private int[][][] deeperClone (int[][][] input){
+        int[][][] output = new int[input.length][][];
         for (int i = 0; i < input.length; i++) {
             output[i] = deepClone(input[i]);
         }
@@ -873,6 +892,28 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
             case 'r' -> makeMove("S'");
             case 'c', 'x' -> makeMove("E ");
             case 'm', ',' -> makeMove("E'");
+        }
+        switch (e.getKeyCode()){
+            case 37 -> {
+                currentSlide--;
+                if(currentSlide<0) currentSlide = 0;
+                cubeFaceColors = deepClone(cubeFaceColorsInit);
+                for (int i = 0; i < 27; i++) {
+                    cubeColors[i] = slides[currentSlide][i];
+                    System.arraycopy(cubeFaceColors[cubeColors[i]], 0, faceColors, 6 * i, 6);
+                }
+                repaint();
+            }
+            case 39 -> {
+                currentSlide++;
+                if(currentSlide>=slides.length) currentSlide = slides.length - 1;
+                cubeFaceColors = deepClone(cubeFaceColorsInit);
+                for (int i = 0; i < 27; i++) {
+                    cubeColors[i] = slides[currentSlide][i];
+                    System.arraycopy(cubeFaceColors[cubeColors[i]], 0, faceColors, 6 * i, 6);
+                }
+                repaint();
+            }
         }
     }
 
