@@ -9,20 +9,22 @@ import javax.swing.*;
 public class Cube3D extends JPanel implements MouseListener, MouseMotionListener, KeyListener {
     //parameters
     private final double rotationSpeed = 0.008;
-    private final double perspective = 1/30.;
+    private final double perspective = 1/20.;
     private final double xAngleStart = -.3;
     private final double yAngleStart = .2;
     private final double rotationThreshold = 1e-10;
-    private static final int windowWidth = 1000;
-    private static final int windowHeight = 1000;
+    private static final int windowWidth = 1200;
+    private static final int windowHeight = 1200;
     private static final double cubeShrinkage = .95;
-    private static final int turningSteps = 10;
+    private static final int turningSteps = 5;
+    private static final int delay = 1;
     private double[][] basis = rotate(new double[][] {{1,0,0},{0,1,0},{0,0,1}}, xAngleStart, yAngleStart);
     // The rotation angles
     private double xAngle;
     private double yAngle;
     private double[][] basisT;
     private int currentStep = 0;
+    private int orientation = 0;
     // The colors of the faces
     private final Color[] colors = {
             new Color(100, 100, 100, 30),//0: transparent gray
@@ -79,15 +81,36 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     private int prevY;
     private double scale;
 
-    Timer timer = new Timer(100, new ActionListener() {
+    Timer timer = new Timer(delay, new ActionListener() {
         public void actionPerformed(ActionEvent e) {
             // Move the square by one step
             currentStep++;
+            double[][] rotationMatrix = new double[][]{{1,0,0},{0,1,0},{0,0,1}};
+            double angle = (turningSteps-currentStep)*Math.PI/(2*turningSteps);
+            switch (orientation){
+                case 0 -> rotationMatrix = new double[][]{{Math.cos(angle),0,Math.sin(angle)},{0,1,0},{-Math.sin(angle),0,Math.cos(angle)}};
+                case 1 -> rotationMatrix = new double[][]{{Math.cos(angle),0,-Math.sin(angle)},{0,1,0},{Math.sin(angle),0,Math.cos(angle)}};
+                case 2 -> rotationMatrix = new double[][]{{1,0,0},{0,Math.cos(angle),Math.sin(angle)},{0,-Math.sin(angle),Math.cos(angle)}};
+                case 3 -> rotationMatrix = new double[][]{{1,0,0},{0,Math.cos(angle),-Math.sin(angle)},{0,Math.sin(angle),Math.cos(angle)}};
+                case 4 -> rotationMatrix = new double[][]{{Math.cos(angle),Math.sin(angle),0},{-Math.sin(angle),Math.cos(angle),0},{0,0,1}};
+                case 5 -> rotationMatrix = new double[][]{{Math.cos(angle),-Math.sin(angle),0},{Math.sin(angle),Math.cos(angle),0},{0,0,1}};
+            }
+            for (int j = 0; j < 162; j++) {
+                if(turning[j]){
+                    for (int l = 0; l < 4; l++) {
+                        faceVertices[j][l][0] = rotationMatrix[0][0]*faceVerticesInit[j][l][0] + rotationMatrix[0][1]*faceVerticesInit[j][l][1] + rotationMatrix[0][2]*faceVerticesInit[j][l][2];
+                        faceVertices[j][l][1] = rotationMatrix[1][0]*faceVerticesInit[j][l][0] + rotationMatrix[1][1]*faceVerticesInit[j][l][1] + rotationMatrix[1][2]*faceVerticesInit[j][l][2];
+                        faceVertices[j][l][2] = rotationMatrix[2][0]*faceVerticesInit[j][l][0] + rotationMatrix[2][1]*faceVerticesInit[j][l][1] + rotationMatrix[2][2]*faceVerticesInit[j][l][2];
+                    }
+                }
+            }
             // Repaint the panel
             repaint();
             // Stop the timer when it reaches 10 steps
-            if (currentStep == 10) {
+            if (currentStep == turningSteps) {
                 currentStep = 0;
+                faceVertices = deeperClone(faceVerticesInit);
+                repaint();
                 timer.stop();
             }
         }
@@ -165,19 +188,17 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         for (int i = 0; i < 162; i++) {
             drawFace(g2d, faceColors[order[i]], faceVerticesT[order[i]]);
         }
-        g2d.setColor(Color.darkGray);
-        g2d.fillPolygon(new int[]{0,10,10,0}, new int[]{0,0,10+currentStep,10}, 4);
     }
 
     private void drawFace(Graphics2D g2d, int color, double[][] vertices) {
-        int[] xCords = new int[] {(int) (vertices[0][0]*Math.exp(vertices[0][2]*perspective)*scale),
-                (int) (vertices[1][0]*Math.exp(vertices[1][2]*perspective)*scale),
-                (int) (vertices[2][0]*Math.exp(vertices[2][2]*perspective)*scale),
-                (int) (vertices[3][0]*Math.exp(vertices[3][2]*perspective)*scale)};
-        int[] yCords = new int[] {(int) (vertices[0][1]*Math.exp(vertices[0][2]*perspective)*scale),
-                (int) (vertices[1][1]*Math.exp(vertices[1][2]*perspective)*scale),
-                (int) (vertices[2][1]*Math.exp(vertices[2][2]*perspective)*scale),
-                (int) (vertices[3][1]*Math.exp(vertices[3][2]*perspective)*scale)};
+        int[] xCords = new int[] {(int) (vertices[0][0]*scale/(1-vertices[0][2]*perspective)),
+                (int) (vertices[1][0]*scale/(1-vertices[1][2]*perspective)),
+                (int) (vertices[2][0]*scale/(1-vertices[2][2]*perspective)),
+                (int) (vertices[3][0]*scale/(1-vertices[3][2]*perspective))};
+        int[] yCords = new int[] {(int) (vertices[0][1]*scale/(1-vertices[0][2]*perspective)),
+                (int) (vertices[1][1]*scale/(1-vertices[1][2]*perspective)),
+                (int) (vertices[2][1]*scale/(1-vertices[2][2]*perspective)),
+                (int) (vertices[3][1]*scale/(1-vertices[3][2]*perspective))};
         g2d.setColor(colors[color]);
         g2d.fillPolygon(xCords, yCords, 4);
         g2d.setColor(Color.darkGray);
@@ -299,7 +320,6 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
         for (int i = 0; i < 162; i++) {
             turning[i] = false;
         }
-        int orientation = -1;
         Set<Integer> toBeRotated = new HashSet<Integer>();
         int buffer;
         switch (move.charAt(0)) {
@@ -349,6 +369,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
                     turning[6*9 + i] = true;
                     turning[6*1 + i] = true;
                     turning[6*11 + i] = true;
+                    turning[6*10 + i] = true;
                 }
             }
             case 'D' -> {
@@ -397,6 +418,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
                     turning[6*17 + i] = true;
                     turning[6*7 + i] = true;
                     turning[6*15 + i] = true;
+                    turning[6*16 + i] = true;
                 }
             }
             case 'R' -> {
@@ -445,6 +467,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
                     turning[6*11 + i] = true;
                     turning[6*5 + i] = true;
                     turning[6*17 + i] = true;
+                    turning[6*14 + i] = true;
                 }
             }
             case 'L' -> {
@@ -493,6 +516,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
                     turning[6*15 + i] = true;
                     turning[6*3 + i] = true;
                     turning[6*9 + i] = true;
+                    turning[6*12 + i] = true;
                 }
             }
             case 'F' -> {
@@ -541,6 +565,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
                     turning[6*23 + i] = true;
                     turning[6*25 + i] = true;
                     turning[6*21 + i] = true;
+                    turning[6*22 + i] = true;
                 }
             }
             case 'B' -> {
@@ -589,6 +614,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
                     turning[6*3 + i] = true;
                     turning[6*7 + i] = true;
                     turning[6*5 + i] = true;
+                    turning[6*4 + i] = true;
                 }
             }
             case 'M' -> {
@@ -637,6 +663,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
                     turning[6*22 + i] = true;
                     turning[6*16 + i] = true;
                     turning[6*4 + i] = true;
+                    turning[6*13 + i] = true;
                 }
             }
             case 'S' -> {
@@ -685,6 +712,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
                     turning[6*14 + i] = true;
                     turning[6*16 + i] = true;
                     turning[6*12 + i] = true;
+                    turning[6*13 + i] = true;
                 }
             }
             case 'E' -> {
@@ -733,6 +761,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
                     turning[6*14 + i] = true;
                     turning[6*4 + i] = true;
                     turning[6*12 + i] = true;
+                    turning[6*13 + i] = true;
                 }
             }
         }
@@ -792,43 +821,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
                 System.arraycopy(cubeFaceColors[cubeColors[i]], 0, faceColors, 6 * i, 6);
             }
         }
-        double[][] rotationMatrix = new double[][]{{1,0,0},{0,1,0},{0,0,1}};
-        double angle;
-        for (int i = 0; i < turningSteps; i++) {
-            angle = (turningSteps-i)*Math.PI/(2*turningSteps);
-            switch (orientation){
-                case 0 -> rotationMatrix = new double[][]{{Math.cos(angle),0,Math.sin(angle)},{0,1,0},{-Math.sin(angle),0,Math.cos(angle)}};
-                case 1 -> rotationMatrix = new double[][]{{Math.cos(angle),0,-Math.sin(angle)},{0,1,0},{Math.sin(angle),0,Math.cos(angle)}};
-                case 2 -> rotationMatrix = new double[][]{{1,0,0},{0,Math.cos(angle),Math.sin(angle)},{0,-Math.sin(angle),Math.cos(angle)}};
-                case 3 -> rotationMatrix = new double[][]{{1,0,0},{0,Math.cos(angle),-Math.sin(angle)},{0,Math.sin(angle),Math.cos(angle)}};
-                case 4 -> rotationMatrix = new double[][]{{Math.cos(angle),Math.sin(angle),0},{-Math.sin(angle),Math.cos(angle),0},{0,0,1}};
-                case 5 -> rotationMatrix = new double[][]{{Math.cos(angle),-Math.sin(angle),0},{Math.sin(angle),Math.cos(angle),0},{0,0,1}};
-            }
-            for (int j = 0; j < 162; j++) {
-                if(turning[j]){
-                    for (int l = 0; l < 4; l++) {
-                        faceVertices[j][l][0] = rotationMatrix[0][0]*faceVerticesInit[j][l][0] + rotationMatrix[0][1]*faceVerticesInit[j][l][1] + rotationMatrix[0][2]*faceVerticesInit[j][l][2];
-                        faceVertices[j][l][1] = rotationMatrix[1][0]*faceVerticesInit[j][l][0] + rotationMatrix[1][1]*faceVerticesInit[j][l][1] + rotationMatrix[1][2]*faceVerticesInit[j][l][2];
-                        faceVertices[j][l][2] = rotationMatrix[2][0]*faceVerticesInit[j][l][0] + rotationMatrix[2][1]*faceVerticesInit[j][l][1] + rotationMatrix[2][2]*faceVerticesInit[j][l][2];
-                    }
-                }
-            }
-            currentStep = i;
-            repaint();
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException ignored) {}
-        }
-        faceVertices = deeperClone(faceVerticesInit);
-        repaint();
-    }
-
-    private double[] negative (double[] input){
-        double[] output = input.clone();
-        for (int i = 0; i < input.length; i++) {
-            output[i] *= -1;
-        }
-        return output;
+        timer.start();
     }
 
     private double[] addAndShrink (double[] base, double[] addition){
@@ -848,20 +841,6 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     }
     private double[][][] deeperClone (double[][][] input){
         double[][][] output = new double[input.length][][];
-        for (int i = 0; i < input.length; i++) {
-            output[i] = deepClone(input[i]);
-        }
-        return output;
-    }
-    private int[][] deepClone (int[][] input){
-        int[][] output = new int[input.length][];
-        for (int i = 0; i < input.length; i++) {
-            output[i] = input[i].clone();
-        }
-        return output;
-    }
-    private int[][][] deeperClone (int[][][] input){
-        int[][][] output = new int[input.length][][];
         for (int i = 0; i < input.length; i++) {
             output[i] = deepClone(input[i]);
         }
