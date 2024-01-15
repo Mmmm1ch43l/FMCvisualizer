@@ -10,13 +10,13 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     //parameters
     private final double rotationSpeed = 0.008;
     private final double perspective = 1/20.;
-    private final double xAngleStart = -.3;
-    private final double yAngleStart = .2;
+    private final double xAngleStart = 0;
+    private final double yAngleStart = 0.7;
     private final double rotationThreshold = 1e-10;
-    private static final int windowWidth = 900;
-    private static final int windowHeight = 600;
+    private static final int windowWidth = 700;
+    private static final int windowHeight = 700;
     private static final double cubeShrinkage = .95;
-    private static final int turningSteps = 5;
+    private static final int turningSteps = 3;
     private static final int delay = 1;
     private double[][] basis = rotate(new double[][] {{1,0,0},{0,1,0},{0,0,1}}, xAngleStart, yAngleStart);
     // The rotation angles
@@ -35,7 +35,8 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
             Color.decode("#0091ff"),//4: blue
             Color.red,//5: red
             Color.decode("#ff9500"),//6: orange
-            new Color(100, 100, 100, 30)};//7: transparent gray
+            new Color(100, 100, 100, 30),//7: transparent gray
+            new Color(10, 10, 10, 230)};//8: darker gray
     private int[][] cubeFaceColors = {
             // 0 - 26: normal pieces
             {4,0,1,0,6,0},
@@ -76,9 +77,15 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
             {0,1,3,0,0,0},//35: 19 but flipped
             {0,5,1,0,0,0},//36: 11 with orientation of 19
             {0,0,1,0,0,3},//37: 19 with orientation of 11
+            {8,8,8,8,8,8},//38: fully dark gray
+            {4,4,1,1,4,4},//39: M-slice "good"
+            {1,1,4,4,1,1},//40: M-slice "bad"
+            {3,3,2,2,3,3},//41: LR "good"
+            {2,2,3,3,2,2},//42: LR "bad"
     };
     private int[][] cubeFaceColorsInit = deepClone(cubeFaceColors);
-    private int[][] slides = {
+    private static int[][] slides = {
+            {38,38,38,38,38,38,38,38,38,38,39,38,38,38,38,38,38,38,38,38,38,38,39,38,38,38,38},//EOLR stuff
             {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26},//normal cube
             {13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,22,13,13,13,13},//1 center
             {13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,19,13,13,13,13,13,13,13},//1 edge
@@ -205,7 +212,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
             drawFace(g2d, faceColors[order[i]], faceVerticesT[order[i]]);
         }
         g2d.setFont(new Font("Serif", Font.BOLD, 30));
-        g2d.drawString((currentSlide+1) + "/" + slides.length,width/2-80,height/2-20);
+        //g2d.drawString((currentSlide+1) + "/" + slides.length,width/2-80,height/2-20);
     }
 
     private void drawFace(Graphics2D g2d, int color, double[][] vertices) {
@@ -261,6 +268,12 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     public void mouseMoved(MouseEvent e) {}
 
     public static void main(String[] args) {
+        int[] EOLR = new int[]{1,1,1,1,1};
+        slides[0][1] += EOLR[0];
+        slides[0][11] += EOLR[1];
+        slides[0][19] += EOLR[2];
+        slides[0][9] += EOLR[3];
+        slides[0][25] += EOLR[4];
         // Create a frame to display the panel
         JFrame frame = new JFrame("Cube3D");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
