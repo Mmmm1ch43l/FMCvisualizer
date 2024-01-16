@@ -15,7 +15,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     private final double rotationThreshold = 1e-10;
     private static final int windowWidth = 700;
     private static final int windowHeight = 700;
-    private static final double cubeShrinkage = .95;
+    private static final double cubeShrinkage = 1;
     private static final int turningSteps = 3;
     private static final int delay = 1;
     private double[][] basis = rotate(new double[][] {{1,0,0},{0,1,0},{0,0,1}}, xAngleStart, yAngleStart);
@@ -36,7 +36,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
             Color.red,//5: red
             Color.decode("#ff9500"),//6: orange
             new Color(100, 100, 100, 30),//7: transparent gray
-            new Color(10, 10, 10, 230)};//8: darker gray
+            new Color(10, 10, 10)};//8: darker gray
     private int[][] cubeFaceColors = {
             // 0 - 26: normal pieces
             {4,0,1,0,6,0},
@@ -80,8 +80,8 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
             {8,8,8,8,8,8},//38: fully dark gray
             {4,4,1,1,4,4},//39: M-slice "good"
             {1,1,4,4,1,1},//40: M-slice "bad"
-            {3,3,2,2,3,3},//41: LR "good"
-            {2,2,3,3,2,2},//42: LR "bad"
+            {5,5,2,2,5,5},//41: LR "good"
+            {2,2,5,5,2,2},//42: LR "bad"
     };
     private int[][] cubeFaceColorsInit = deepClone(cubeFaceColors);
     private static int[][] slides = {
@@ -268,7 +268,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     public void mouseMoved(MouseEvent e) {}
 
     public static void main(String[] args) {
-        int[] EOLR = new int[]{1,1,1,1,1};
+        int[] EOLR = new int[]{1,1,4,1,3};
         slides[0][1] += EOLR[0];
         slides[0][11] += EOLR[1];
         slides[0][19] += EOLR[2];
