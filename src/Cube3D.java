@@ -268,7 +268,7 @@ public class Cube3D extends JPanel implements MouseListener, MouseMotionListener
     public void mouseMoved(MouseEvent e) {}
 
     public static void main(String[] args) {
-        int[] EOLR = new int[]{1,1,4,1,3};
+        int[] EOLR = new int[]{2,3,3,2,2};
         slides[0][1] += EOLR[0];
         slides[0][11] += EOLR[1];
         slides[0][19] += EOLR[2];
